@@ -64,6 +64,8 @@ export default class SquadWidget {
       
       const response = await fetch(apiUrl, {
         method: 'GET',
+        mode: 'cors', 
+        credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
           'X-API-Key': keyToTest
