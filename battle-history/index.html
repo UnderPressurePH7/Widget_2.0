@@ -11,7 +11,6 @@
     <div class="container">
         <h1>Історія боїв</h1>
         
-        <!-- Головне меню вкладок -->
         <div class="tabs-container">
             <div class="tabs">
                 <button class="tab-btn active" data-tab="battles">Історія боїв</button>
@@ -28,8 +27,7 @@
             </div>
         </div>
 		
-		<!-- Вкладка: Історія боїв -->
-        <div class="tab-content active" id="battles-tab">
+		<div class="tab-content active" id="battles-tab">
             <div class="filters">
                 <div class="filter-row">
                     <div class="filter-group">
@@ -107,17 +105,14 @@
                         </tr>
                     </thead>
                     <tbody id="battle-table-body">
-                        <!-- Дані будуть додані динамічно -->
                     </tbody>
                 </table>
             </div>
 
             <div class="pagination" id="pagination">
-                <!-- Пагінація буде додана динамічно -->
             </div>
         </div>
 		
-        <!-- Вкладка: Загальна статистика -->
         <div class="tab-content" id="summary-tab">
             <div class="summary-stats">
                 <div class="stats-header">
@@ -177,7 +172,6 @@
             </div>
         </div>
 
-        <!-- Вкладка: Статистика гравців -->
         <div class="tab-content" id="players-tab">
             <div class="player-stats-container">
                 <div class="stats-header">
@@ -209,14 +203,12 @@
                             </tr>
                         </thead>
                         <tbody id="players-table-body">
-                            <!-- Дані будуть додані динамічно -->
                         </tbody>
                     </table>
                 </div>
             </div>
         </div>
 
-        <!-- Вкладка: Статистика техніки -->
         <div class="tab-content" id="vehicles-tab">
             <div class="vehicle-stats-container">
                 <div class="stats-header">
@@ -248,14 +240,12 @@
                             </tr>
                         </thead>
                         <tbody id="vehicles-table-body">
-                            <!-- Дані будуть додані динамічно -->
                         </tbody>
                     </table>
                 </div>
             </div>
         </div>
 
-        <!-- Модальне вікно з деталями бою -->
         <div id="battle-modal" class="modal">
             <div class="modal-content">
                 <div class="modal-header">
@@ -320,7 +310,6 @@
                                     </tr>
                                 </thead>
                                 <tbody id="modal-players-table-body">
-                                    <!-- Дані будуть додані динамічно -->
                                 </tbody>
                             </table>
                         </div>
@@ -335,7 +324,6 @@
                             <div class="analysis-section">
                                 <h4>Ключові показники</h4>
                                 <ul id="battle-key-metrics">
-                                    <!-- Ключові метрики будуть додані динамічно -->
                                 </ul>
                             </div>
                         </div>
@@ -345,10 +333,8 @@
         </div>
     </div>
 
-    <!-- Підключення бібліотек діаграм -->
+    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.7.0/chart.min.js"></script>
-    
-    <!-- Підключення головного модуля -->
     <script type="module" src="./scripts/mainHistory.js"></script>
 </body>
 </html>

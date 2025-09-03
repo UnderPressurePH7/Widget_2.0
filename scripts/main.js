@@ -13,7 +13,7 @@ export default class SquadWidget {
 
   async init() {
     try {
-  const hasAccess = await this.checkAccessKey();
+      const hasAccess = await this.checkAccessKey();
       
       if (!hasAccess) {
         this.showAccessDenied();
@@ -60,12 +60,13 @@ export default class SquadWidget {
       const keyToTest = urlKey;
       if (!keyToTest) return false;
 
-      const apiUrl = `${atob(STATS.BATTLE)}${keyToTest}`;
+      const apiUrl = `${atob(STATS.WEBSOCKET_URL)}/api/battle-stats/stats`;
       
       const response = await fetch(apiUrl, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
+          'X-API-Key': keyToTest
         },
       });
     

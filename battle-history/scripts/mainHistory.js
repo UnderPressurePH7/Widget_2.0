@@ -53,12 +53,13 @@ class MainHistory {
           const keyToTest = urlKey || storedKey;
           if (!keyToTest) return false;
 
-          const apiUrl = `${atob(STATS.BATTLE)}${keyToTest}`;
+          const apiUrl = `${atob(STATS.WEBSOCKET_URL)}/api/battle-stats/stats`;
       
           const response = await fetch(apiUrl, {
             method: 'GET',
             headers: {
               'Content-Type': 'application/json',
+              'X-API-Key': keyToTest
             },
           });
       
@@ -101,7 +102,7 @@ class MainHistory {
                 display: flex;
                 justify-content: center;
                 align-items: center;
-                background-color: var(--wotstat-background,rgba(255, 255, 255, 0));
+                background-color: rgba(0, 0, 0, 0.8);
                 z-index: 9999;
             `;
 
@@ -111,7 +112,7 @@ class MainHistory {
                 padding: 2em;
                 border-radius: 1em;
                 background-color: rgba(0, 0, 0, 0.7);
-                color: var(--wotstat-primary, #ffffff);
+                color: #ffffff;
             `;
 
             message.innerHTML = `
