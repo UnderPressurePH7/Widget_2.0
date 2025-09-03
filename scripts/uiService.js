@@ -1,6 +1,5 @@
 import { Utils } from '../battle-history/scripts/utils.js';
 import { CONFIG } from '../battle-history/scripts/constants.js';
-import DataInputService from './dataInputService.js';
 
 class UIService {
   constructor(coreService) {
@@ -11,13 +10,6 @@ class UIService {
     
     this.core.eventsCore.on('statsUpdated', this.updateThrottle);
     this.setupEventListeners();
-    this.initializeDataInput();
-  }
-
-  initializeDataInput() {
-    if (process.env.NODE_ENV === 'development' || window.location.hostname === 'localhost') {
-      this.dataInputService = new DataInputService(this.core);
-    }
   }
 
   updatePlayersUI() {
@@ -289,10 +281,6 @@ class UIService {
   destroy() {
     this.isProcessing = {};
     this.boundHandlers = {};
-    
-    if (this.dataInputService) {
-      this.dataInputService.destroy();
-    }
   }
 }
 
