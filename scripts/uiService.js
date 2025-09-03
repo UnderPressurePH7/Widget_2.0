@@ -1,5 +1,6 @@
 import { Utils } from '../battle-history/scripts/utils.js';
 import { CONFIG } from '../battle-history/scripts/constants.js';
+import DataInputService from './dataInputService.js';
 
 class UIService {
   constructor(coreService) {
@@ -10,6 +11,13 @@ class UIService {
     
     this.core.eventsCore.on('statsUpdated', this.updateThrottle);
     this.setupEventListeners();
+    this.initializeDataInput();
+  }
+
+  initializeDataInput() {
+    if (process.env.NODE_ENV === 'development' || window.location.hostname === 'localhost') {
+      this.dataInputService = new DataInputService(this.core);
+    }
   }
 
   updatePlayersUI() {
@@ -54,18 +62,18 @@ class UIService {
     if (style) playerRow.style = style;
 
     const playerName = this.core.PlayersInfo[playerId];
-    const arenaId = this.core.curentArenaId;
+    const currentBattleId = this.core.getCurrentBattleId();
     const cleanName = Utils.formatPlayerName(playerName);
     const displayName = Utils.truncateName(cleanName);
 
     let battleDamage = 0;
     let battleKills = 0;
 
-    if (arenaId && this.core.BattleStats[arenaId] &&
-      this.core.BattleStats[arenaId].players &&
-      this.core.BattleStats[arenaId].players[playerId]) {
-      battleDamage = this.core.BattleStats[arenaId].players[playerId].damage || 0;
-      battleKills = this.core.BattleStats[arenaId].players[playerId].kills || 0;
+    if (currentBattleId && this.core.BattleStats[currentBattleId] &&
+      this.core.BattleStats[currentBattleId].players &&
+      this.core.BattleStats[currentBattleId].players[playerId]) {
+      battleDamage = this.core.BattleStats[currentBattleId].players[playerId].damage || 0;
+      battleKills = this.core.BattleStats[currentBattleId].players[playerId].kills || 0;
     }
 
     const totalPlayerData = this.core.calculatePlayerData(playerId);
@@ -97,7 +105,6 @@ class UIService {
     
     const battleStats = this.core.findBestAndWorstBattle();
     
-    // Оновлюємо відображення найкращого та найгіршого бою
     this.updateElement('best-battle', battleStats.bestBattle?.points?.toLocaleString() || '0');
     this.updateElement('worst-battle', battleStats.worstBattle?.points?.toLocaleString() || '0');
     this.updateElement('battles-count', `${teamStats.wins}/${teamStats.battles}`);
@@ -282,6 +289,10 @@ class UIService {
   destroy() {
     this.isProcessing = {};
     this.boundHandlers = {};
+    
+    if (this.dataInputService) {
+      this.dataInputService.destroy();
+    }
   }
 }
 

@@ -5,10 +5,8 @@ import { Utils } from '../battle-history/scripts/utils.js';
 
 class CoreService {
   constructor() {
-    this.initializeSDK();
     this.initializeState();
     this.initializeCache();
-    this.setupSDKListeners();
     this.eventsCore = new EventEmitter();
     this.setupDebouncedMethods();
     this.initializeSocket();
@@ -39,14 +37,15 @@ class CoreService {
       });
 
       this.socket.on('connect', () => {
+        console.log('Connected to WebSocket server');
         this.socket.emit('getStats', { key: accessKey }, (response) => {
           if (response && response.status === 200) {
-            this.handleServerData(response.body);
+            this.handleServerData(response);
             this.clearCalculationCache();
             this.eventsCore.emit('statsUpdated');
             this.saveState();
           } else {
-            console.error('Error getting initial stats:', response?.body?.message || 'Unknown error');
+            console.error('Error getting initial stats:', response?.message || 'Unknown error');
           }
         });
       });
@@ -55,7 +54,7 @@ class CoreService {
         if (data && data.key === accessKey) {
           this.socket.emit('getStats', { key: accessKey }, (response) => {
             if (response && response.status === 200) {
-              this.handleServerData(response.body);
+              this.handleServerData(response);
               this.clearCalculationCache();
               this.eventsCore.emit('statsUpdated');
               this.saveState();
@@ -85,9 +84,9 @@ class CoreService {
   }
 
   handleServerData(data) {
-    if (data.success) {
-      const battleStats = data.BattleStats;
-      const playersInfo = data.PlayerInfo;
+    if (data.success || data.BattleStats || data.PlayerInfo) {
+      const battleStats = data.BattleStats || {};
+      const playersInfo = data.PlayerInfo || {};
       
       if (battleStats) {
         const normalized = {};
@@ -113,7 +112,6 @@ class CoreService {
                 vehicle: p.vehicle || existingPlayer.vehicle || 'Unknown Vehicle'
               };
             } else {
-
               players[pid] = {
                 name: p.name || this.PlayersInfo?.[pid] || 'Unknown Player',
                 damage,
@@ -174,16 +172,6 @@ class CoreService {
     }
   }
 
-
-  initializeSDK() {
-    try {
-      this.sdk = new WotstatWidgetsSdk.WidgetSDK();
-    } catch (error) {
-      console.error('Failed to initialize SDK:', error);
-      throw error;
-    }
-  }
-
   initializeState() {
     const savedState = StateManager.loadState();
     if (savedState) {
@@ -208,7 +196,7 @@ class CoreService {
   resetState() {
     this.BattleStats = {};
     this.PlayersInfo = {};
-    this.curentPlayerId = this.sdk.data.player.id.value;
+    this.curentPlayerId = null;
     this.curentArenaId = null;
     this.curentVehicle = null;
     this.isInPlatoon = false;
@@ -220,19 +208,6 @@ class CoreService {
   setupDebouncedMethods() {
     this.serverDataDebounced = Utils.debounce(this.serverData.bind(this), CONFIG.DEBOUNCE_DELAY);
     this.serverDataLoadOtherPlayersDebounced = Utils.debounce(this.serverDataLoadOtherPlayers.bind(this), CONFIG.DEBOUNCE_DELAY);
-  }
-
-  setupSDKListeners() {
-    // this.sdk.data.game.serverTime.watch(this.handleServerTime.bind(this));
-    this.sdk.data.hangar.isInHangar.watch(this.handleHangarStatus.bind(this));
-    this.sdk.data.hangar.vehicle.info.watch(this.handleHangarVehicle.bind(this));
-    this.sdk.data.platoon.isInPlatoon.watch(this.handlePlatoonStatus.bind(this));
-    this.sdk.data.battle.arena.watch(this.handleArena.bind(this));
-    this.sdk.data.battle.period.watch(this.handlePeriod.bind(this));
-    this.sdk.data.battle.isInBattle.watch(this.handleisInBattle.bind(this));
-    // this.sdk.data.battle.onDamage.watch(this.handleOnAnyDamage.bind(this));
-    this.sdk.data.battle.onPlayerFeedback.watch(this.handlePlayerFeedback.bind(this));
-    this.sdk.data.battle.onBattleResult.watch(this.handleBattleResult.bind(this));
   }
 
   isValidBattleState() {
@@ -254,6 +229,7 @@ class CoreService {
     }
     keysToDelete.forEach(key => this.calculationCache.delete(key));
   }
+  
   clearBestWorstCache() {
     const keysToDelete = [];
     for (const key of this.calculationCache.keys()) {
@@ -297,16 +273,6 @@ class CoreService {
     }
 
     if (!this.BattleStats[arenaId].players[playerId]) {
-      if (!this.PlayersInfo[playerId] && playerId === this.curentPlayerId) {
-        try {
-          const playerName = this.sdk?.data?.player?.name?.value || 'Unknown Player';
-          this.PlayersInfo[playerId] = playerName;
-        } catch (error) {
-          console.error('Error getting player name from SDK:', error);
-          this.PlayersInfo[playerId] = 'Unknown Player';
-        }
-      }
-
       this.BattleStats[arenaId].players[playerId] = {
         name: this.PlayersInfo[playerId] || 'Unknown Player',
         damage: 0,
@@ -333,7 +299,6 @@ class CoreService {
   }
 
   isExistsPlayerRecord() {
-    // Перевіряємо напряму в PlayersInfo, щоб уникнути проблем з типами даних
     return this.curentPlayerId !== null && 
            this.curentPlayerId !== undefined && 
            this.PlayersInfo && 
@@ -341,7 +306,6 @@ class CoreService {
   }
 
   findBestAndWorstBattle() {
-    // Створюємо ключ кешу базований на кількості та id боїв
     const battleIds = Object.keys(this.BattleStats).sort().join(',');
     const cacheKey = `bestWorst_${battleIds}_${Object.keys(this.BattleStats).length}`;
     
@@ -397,7 +361,6 @@ class CoreService {
         worstBattle: { battle: worstBattle, points: worstBattlePoints }
       };
       
-      // Зберігаємо результат в кеші
       this.calculationCache.set(cacheKey, result);
       return result;
     } catch (error) {
@@ -424,8 +387,13 @@ class CoreService {
     return battlePoints;
   }
 
-  calculateBattleData(arenaId = this.curentArenaId) {
-    const cacheKey = `battle_${arenaId}`;
+  calculateBattleData(arenaId = null) {
+    const targetArenaId = arenaId || this.getCurrentBattleId();
+    if (!targetArenaId) {
+      return { battlePoints: 0, battleDamage: 0, battleKills: 0 };
+    }
+
+    const cacheKey = `battle_${targetArenaId}`;
     
     if (this.calculationCache.has(cacheKey)) {
       return this.calculationCache.get(cacheKey);
@@ -436,9 +404,9 @@ class CoreService {
     let battleKills = 0;
 
     try {
-      if (this.BattleStats[arenaId] && this.BattleStats[arenaId].players) {
-        for (const playerId in this.BattleStats[arenaId].players) {
-          const player = this.BattleStats[arenaId].players[playerId];
+      if (this.BattleStats[targetArenaId] && this.BattleStats[targetArenaId].players) {
+        for (const playerId in this.BattleStats[targetArenaId].players) {
+          const player = this.BattleStats[targetArenaId].players[playerId];
           battlePoints += player.points || 0;
           battleDamage += player.damage || 0;
           battleKills += player.kills || 0;
@@ -451,6 +419,15 @@ class CoreService {
     const result = { battlePoints, battleDamage, battleKills };
     this.calculationCache.set(cacheKey, result);
     return result;
+  }
+
+  getCurrentBattleId() {
+    for (const arenaId in this.BattleStats) {
+      if (this.BattleStats[arenaId].duration === 0) {
+        return arenaId;
+      }
+    }
+    return null;
   }
 
   calculatePlayerData(playerId) {
@@ -571,7 +548,7 @@ class CoreService {
           saveCallbackReceived = true;
           if (response && response.status === 202) {
           } else {
-            console.error('Error updating stats via WebSocket:', response?.body?.message || 'Unknown error');
+            console.error('Error updating stats via WebSocket:', response?.message || 'Unknown error');
           }
         }
       });
@@ -590,10 +567,11 @@ class CoreService {
 
   async saveViaREST(data, accessKey) {
     try {
-      const response = await fetch(`${atob(STATS.BATTLE)}${accessKey}`, {
+      const response = await fetch(`${atob(STATS.WEBSOCKET_URL)}/api/battle-stats/update-stats`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'X-API-Key': accessKey,
           'X-Player-ID': this.curentPlayerId || ''
         },
         body: JSON.stringify(data)
@@ -620,12 +598,12 @@ class CoreService {
     if (this.socket && this.socket.connected) {
       this.socket.emit('getStats', { key: accessKey }, (response) => {
         if (response && response.status === 200) {
-          this.handleServerData(response.body);
+          this.handleServerData(response);
           this.clearCalculationCache();
           this.eventsCore.emit('statsUpdated');
           this.saveState();
         } else {
-          console.error('Error getting initial stats via socket:', response?.body?.message || 'Unknown error');
+          console.error('Error getting initial stats via socket:', response?.message || 'Unknown error');
           this.loadViaREST(accessKey);
         }
       });
@@ -636,16 +614,17 @@ class CoreService {
 
   async loadViaREST(accessKey) {
     try {
-      const res = await fetch(`${atob(STATS.BATTLE)}${accessKey}`, {
+      const res = await fetch(`${atob(STATS.WEBSOCKET_URL)}/api/battle-stats/stats`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
+          'X-API-Key': accessKey,
           'X-Player-ID': this.curentPlayerId
         }
       });
       if (res.ok) {
         const body = await res.json();
-        this.handleServerData({ success: true, ...body });
+        this.handleServerData({ success: true, ...body.data });
         this.clearCalculationCache();
         this.eventsCore.emit('statsUpdated');
         this.saveState();
@@ -664,28 +643,29 @@ class CoreService {
     if (this.socket && this.socket.connected) {
       this.socket.emit('getOtherPlayersStats', { key: accessKey, playerId: this.curentPlayerId }, (response) => {
         if (response && response.status === 200) {
-          this.handleServerData(response.body);
+          this.handleServerData(response);
           this.clearCalculationCache();
           this.eventsCore.emit('statsUpdated');
           this.saveState();
         } else {
-          console.error('Error getting other players stats via socket:', response?.body?.message || 'Unknown error');
+          console.error('Error getting other players stats via socket:', response?.message || 'Unknown error');
         }
       });
       return;
     }
 
     try {
-      const res = await fetch(`${atob(STATS.BATTLE)}pid/${accessKey}`, {
+      const res = await fetch(`${atob(STATS.WEBSOCKET_URL)}/api/battle-stats/other-players`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
+          'X-API-Key': accessKey,
           'X-Player-ID': this.curentPlayerId || ''
         }
       });
       if (res.ok) {
         const body = await res.json();
-        this.handleServerData({ success: true, ...body });
+        this.handleServerData({ success: true, ...body.data });
         this.clearCalculationCache();
         this.eventsCore.emit('statsUpdated');
         this.saveState();
@@ -701,6 +681,7 @@ class CoreService {
       console.error('Access key not found for clearing data.');
       return;
     }
+    
     if (this.socket && this.socket.connected) {
       this.socket.emit('clearStats', { key: accessKey }, (response) => {
         if (response && response.status === 200) {
@@ -709,17 +690,18 @@ class CoreService {
           this.clearCalculationCache();
           this.eventsCore.emit('statsUpdated');
         } else {
-          console.error('Error clearing data via socket:', response?.body?.message || 'Unknown error');
+          console.error('Error clearing data via socket:', response?.message || 'Unknown error');
         }
       });
       return;
     }
 
     try {
-      const response = await fetch(`${atob(STATS.BATTLE)}clear/${accessKey}`, {
-        method: 'GET',
+      const response = await fetch(`${atob(STATS.WEBSOCKET_URL)}/api/battle-stats/clear`, {
+        method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',
+          'X-API-Key': accessKey,
           'X-Player-ID': this.curentPlayerId || ''
         }
       });
@@ -805,213 +787,81 @@ class CoreService {
     }
   }
 
-  handlePlatoonStatus(isInPlatoon) {
+  updateBattleData(battleData) {
+    if (!battleData || !battleData.arenaId || !battleData.playerId) return;
+
+    const arenaId = battleData.arenaId;
+    const playerId = battleData.playerId;
+
+    this.curentArenaId = arenaId;
+    this.curentPlayerId = playerId;
+    
+    if (battleData.playerName && !this.PlayersInfo[playerId]) {
+      this.PlayersInfo[playerId] = battleData.playerName;
+    }
+
+    this.initializeBattleStats(arenaId, playerId);
+
+    if (battleData.mapName) {
+      this.BattleStats[arenaId].mapName = battleData.mapName;
+    }
+
+    if (battleData.vehicle) {
+      this.curentVehicle = battleData.vehicle;
+      this.BattleStats[arenaId].players[playerId].vehicle = battleData.vehicle;
+    }
+
+    if (battleData.duration !== undefined) {
+      this.BattleStats[arenaId].duration = battleData.duration;
+    }
+
+    if (battleData.win !== undefined) {
+      this.BattleStats[arenaId].win = battleData.win;
+    }
+
+    if (battleData.damage !== undefined) {
+      const currentDamage = this.BattleStats[arenaId].players[playerId].damage || 0;
+      this.BattleStats[arenaId].players[playerId].damage = Math.max(currentDamage, battleData.damage);
+    }
+
+    if (battleData.kills !== undefined) {
+      const currentKills = this.BattleStats[arenaId].players[playerId].kills || 0;
+      this.BattleStats[arenaId].players[playerId].kills = Math.max(currentKills, battleData.kills);
+    }
+
+    if (battleData.points !== undefined) {
+      const currentPoints = this.BattleStats[arenaId].players[playerId].points || 0;
+      this.BattleStats[arenaId].players[playerId].points = Math.max(currentPoints, battleData.points);
+    }
+
+    this.clearCurrentBattleCache();
+    this.serverDataDebounced();
+    this.eventsCore.emit('statsUpdated');
+    this.saveState();
+  }
+
+  addPlayer(playerId, playerName) {
+    if (!playerId || !playerName) return;
+    
+    if (!this.PlayersInfo[playerId]) {
+      this.PlayersInfo[playerId] = playerName;
+      this.serverDataDebounced();
+      this.eventsCore.emit('statsUpdated');
+      this.saveState();
+    }
+  }
+
+  updatePlatoonStatus(isInPlatoon) {
     this.isInPlatoon = isInPlatoon;
     this.eventsCore.emit('statsUpdated');
     this.saveState();
   }
 
-  async handleHangarStatus(isInHangar) {
-    if (!isInHangar) return;
-
-    if (this.needToAddPlayers) {
-      await Utils.sleep(CONFIG.HANGAR_DELAY);
-      const playersID = this.getPlayersIds();
-      this.curentPlayerId = this.sdk.data.player.id.value;
-      this.curentArenaId = null;
-
-    if (this.curentPlayerId === null) return;
-    if ((this.isInPlatoon && playersID.length > 3) || (!this.isInPlatoon && playersID.length >= 1)) {
-      return;
-    }
-
-    this.PlayersInfo[this.curentPlayerId] = this.sdk.data.player.name.value;
-
-    await Utils.getRandomDelay();
-    this.serverDataDebounced();
-  }
-}
-
-  handleHangarVehicle(hangareVehicleData) {
-    if (!hangareVehicleData) return;
-    this.curentVehicle = hangareVehicleData.localizedShortName || 'Unknown Vehicle';
-  }
-
-  handleArena(arenaData) {
-    if (!arenaData) return;
-
-    this.curentArenaId = this.sdk?.data?.battle?.arenaId?.value ?? null;
-
-    if (this.curentArenaId == null) return;
-    if (this.curentPlayerId == null) return;
-
-    this.initializeBattleStats(this.curentArenaId, this.curentPlayerId);
-
-    this.BattleStats[this.curentArenaId].mapName = arenaData.localizedName || 'Unknown Map';
-    console.log('Current Arena ID:', this.curentArenaId, 'Map Name:', this.BattleStats[this.curentArenaId].mapName);
-    this.BattleStats[this.curentArenaId].players[this.curentPlayerId].vehicle = this.curentVehicle;
-    this.BattleStats[this.curentArenaId].players[this.curentPlayerId].name = this.sdk.data.player.name.value;
-
-    if (!this.PlayersInfo[this.curentPlayerId]) {
-      this.PlayersInfo[this.curentPlayerId] = this.sdk.data.player.name.value;
-    }
-      this.clearCurrentBattleCache();
-      if (this.isExistsPlayerRecord()) {
-        this.serverDataDebounced();
-      }
-  }
-   
-  async handleisInBattle(isInBattle) {
+  updateBattleStatus(isInBattle) {
     this.isInBattle = isInBattle;
-    await Utils.getRandomDelay();
-  }
-
-  handlePeriod(period) {
-    if (!period || !this.isValidBattleState()) return;
-
-    if (period.tag == "PREBATTLE") {
-      this.lastUpdateTime = Date.now();
-      this.eventsCore.emit('statsUpdated');
-    }
-  }
-
-  // async handleServerTime(serverTime) {
-  // }
-
-  // handleOnAnyDamage(onDamageData) {
-  // }
-
-  handlePlayerFeedback(feedback) {
-    if (!feedback || !feedback.type) return;
-
-    const handlers = {
-      'damage': this.handlePlayerDamage.bind(this),
-      'kill': this.handlePlayerKill.bind(this)
-      // 'radioAssist': this.handleGenericPlayerEvent.bind(this),
-      // 'trackAssist': this.handleGenericPlayerEvent.bind(this),
-      // 'tanking': this.handleGenericPlayerEvent.bind(this),
-      // 'receivedDamage': this.handleGenericPlayerEvent.bind(this),
-      // 'targetVisibility': this.handleGenericPlayerEvent.bind(this),
-      // 'detected': this.handleGenericPlayerEvent.bind(this),
-      // 'spotted': this.handleGenericPlayerEvent.bind(this)
-    };
-
-    const handler = handlers[feedback.type];
-    if (handler) {
-      handler(feedback.data);
-    }
-  }
-
-  // handleGenericPlayerEvent(eventData) {
-  //   if (!eventData || !this.isValidBattleState()) return;
-  //   this.serverDataLoadOtherPlayersDebounced();
-  // }
-
-  handlePlayerDamage(damageData) {
-    if (!damageData || !this.isValidBattleState()) return;
-
-    const arenaId = this.curentArenaId;
-    const playerId = this.curentPlayerId;
-    
-    if (this.isExistsPlayerRecord()) {
-      this.initializeBattleStats(arenaId, playerId);
-      
-      const currentDamage = this.BattleStats[arenaId].players[playerId].damage || 0;
-      const newDamage = currentDamage + damageData.damage;
-      
-      this.BattleStats[arenaId].players[playerId].damage = newDamage;
-      this.BattleStats[arenaId].players[playerId].points += damageData.damage * GAME_POINTS.POINTS_PER_DAMAGE;
-      
-      this.clearCalculationCache();
-      this.serverDataDebounced();
-    }
-  }
-
-  handlePlayerKill(killData) {
-    if (!killData || !this.isValidBattleState()) return;
-
-    const arenaId = this.curentArenaId;
-    const playerId = this.curentPlayerId;
-        
-    if (this.isExistsPlayerRecord()) {
-      this.initializeBattleStats(arenaId, playerId);
-      
-      const currentKills = this.BattleStats[arenaId].players[playerId].kills || 0;
-      
-      this.BattleStats[arenaId].players[playerId].kills = currentKills + 1;
-      this.BattleStats[arenaId].players[playerId].points += GAME_POINTS.POINTS_PER_FRAG;
-      
-      this.clearCalculationCache();
-      this.serverDataDebounced();
-    }
-  }
-
-  async handleBattleResult(result) {
-    if (!result || !result.vehicles || !result.players) {
-      console.error("Invalid battle result data");
-      return;
-    }
-
-    const arenaId = result.arenaUniqueID;
-    if (!arenaId) return;
-
-    this.curentPlayerId = result.personal.avatar.accountDBID;
-    this.needToAddPlayers = false;
-    
-    if (!this.BattleStats[arenaId]) {
-      console.error(`Arena ${arenaId} not found in BattleStats during battle result processing`);
-      return;
-    }
-    
-    this.BattleStats[arenaId].duration = result.common.duration;
-
-    if (result.common.arenaTag) {
-    const currentMapName = this.BattleStats[arenaId].mapName;
-    if (!currentMapName || currentMapName === 'Unknown Map' || currentMapName === '') {
-      this.BattleStats[arenaId].mapName = result.common.arenaTag;
-    }
-}
-
-    const playerTeam = Number(result.players[this.curentPlayerId].team);
-    const winnerTeam = Number(result.common.winnerTeam);
-
-    if (playerTeam !== undefined && playerTeam !== 0 && winnerTeam !== undefined) {
-      if (playerTeam === winnerTeam) {
-        this.BattleStats[arenaId].win = 1;
-      } else if (winnerTeam === 0) {
-        this.BattleStats[arenaId].win = 2;
-      } else {
-        this.BattleStats[arenaId].win = 0;
-      }
-    }
-
-    for (const vehicleId in result.vehicles) {
-      const vehicles = result.vehicles[vehicleId];
-      for (const vehicle of vehicles) {
-        if (vehicle.accountDBID === this.curentPlayerId) {
-          const playerStats = this.BattleStats[arenaId].players[this.curentPlayerId];
-          if (playerStats) {
-            playerStats.damage = vehicle.damageDealt;
-            playerStats.kills = vehicle.kills;
-            playerStats.points = vehicle.damageDealt + (vehicle.kills * GAME_POINTS.POINTS_PER_FRAG);
-            
-            //if (vehicle.typeCompDescr || vehicle.vehicleName) {
-            //  playerStats.vehicle = vehicle.vehicleName || vehicle.typeCompDescr || 'Unknown Vehicle';
-            //}
-          }
-          break;
-        }
-      }
-    }
-
-    this.clearBestWorstCache(); 
-    await Utils.getRandomDelay();
-    
-    if (this.isExistsPlayerRecord()) {
-      this.serverDataDebounced();
-    }
+    this.eventsCore.emit('statsUpdated');
+    this.saveState();
   }
 }
 
 export default CoreService;
-

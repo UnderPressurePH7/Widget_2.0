@@ -7,7 +7,7 @@ export const GAME_POINTS = {
 export const STATS = {
     BATTLE: "aHR0cHM6Ly9ub2Rlc2VydmVyLWZmYjY0NTAxZDhlZi5oZXJva3VhcHAuY29tL2FwaS9iYXR0bGUtc3RhdHMv",
     STATUS: "aHR0cHM6Ly9ub2Rlc2VydmVyLWZmYjY0NTAxZDhlZi5oZXJva3VhcHAuY29tL2FwaS9zdGF0dXM=",
-    WEBSOCKET_URL: "aHR0cHM6Ly9ub2Rlc2VydmVyLWZmYjY0NTAxZDhlZi5oZXJva3VhcHAuY29t"
+    WEBSOCKET_URL: "aHR0cHM6Ly9ub2Rlc2VydmVyLTc1ODQ2OGE0OWZlZS5oZXJva3VhcHAuY29t"
 };
 
 export const CONFIG = {
@@ -28,4 +28,3 @@ export const CACHE_KEYS = {
   GAME_STATE: 'gameState',
   ACCESS_KEY: 'accessKey'
 };
-
