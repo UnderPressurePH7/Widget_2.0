@@ -8,6 +8,61 @@ class BattleDataManager {
     this.initializeState();
     this.filteredBattles = [];
     this.eventsHistory = new EventEmitter();
+    this.initializeSocket();
+  }
+
+  initializeSocket() {
+    const accessKey = this.getAccessKey();
+    if (!accessKey) {
+      console.error('Access key not found, WebSocket not initialized.');
+      return;
+    }
+    
+    if (typeof io === 'undefined') {
+      console.error('Socket.IO library not found!');
+      return;
+    }
+    
+    try {
+      this.socket = io(atob(STATS.WEBSOCKET_URL), {
+        query: { key: accessKey },
+        transports: ['websocket', 'polling'],
+        reconnectionAttempts: 5,
+        reconnectionDelay: 1000,
+        timeout: 20000,
+      });
+
+      this.socket.on('connect', () => {
+        console.log('Connected to history WebSocket server');
+      });
+
+      this.socket.on('statsUpdated', (data) => {
+        if (data && data.key === accessKey) {
+          this.loadFromServer();
+        }
+      });
+
+      this.socket.on('statsCleared', (data) => {
+        if (data && data.key === accessKey) {
+          this.BattleStats = {};
+          this.PlayersInfo = {};
+          this.eventsHistory.emit('historyCleared');
+        }
+      });
+
+      this.socket.on('battleDeleted', (data) => {
+        if (data && data.key === accessKey) {
+          this.loadFromServer();
+        }
+      });
+
+      this.socket.on('connect_error', (error) => {
+        console.error('History Socket connection error:', error);
+      });
+
+    } catch (error) {
+      console.error('History WebSocket initialization error:', error);
+    }
   }
 
   initializeState() {
@@ -28,7 +83,6 @@ class BattleDataManager {
     this.BattleStats = {};
     this.PlayersInfo = {};
   }
-
 
   getAccessKey() {
     return StateManager.getAccessKey();
@@ -132,8 +186,26 @@ class BattleDataManager {
         ]))
       };
 
-      const response = await this.makeServerRequest(`${atob(STATS.BATTLE)}${accessKey}`, {
+      if (this.socket && this.socket.connected) {
+        return new Promise((resolve, reject) => {
+          this.socket.emit('updateStats', { 
+            key: accessKey, 
+            body: data 
+          }, (response) => {
+            if (response && response.success) {
+              resolve(true);
+            } else {
+              reject(new Error(response?.message || 'Failed to save data via WebSocket'));
+            }
+          });
+        });
+      }
+
+      const response = await this.makeServerRequest(`${atob(STATS.WEBSOCKET_URL)}/api/battle-stats/update-stats`, {
         method: 'POST',
+        headers: {
+          'X-API-Key': accessKey
+        },
         body: JSON.stringify(data)
       });
 
@@ -148,18 +220,45 @@ class BattleDataManager {
     }
   }
 
-  async loadFromServer() {
+  async loadFromServer(page = 1, limit = 0) {
     try {
       const accessKey = this.getAccessKey();
       if (!accessKey) {
         throw new Error('Access key not found');
       }
 
-      const data = await this.makeServerRequest(`${atob(STATS.BATTLE)}${accessKey}`, {
-        method: 'GET'
-      });
+      let data;
+      
+      if (this.socket && this.socket.connected) {
+        data = await new Promise((resolve, reject) => {
+          this.socket.emit('getStats', { 
+            key: accessKey,
+            page,
+            limit
+          }, (response) => {
+            if (response && response.status === 200) {
+              resolve(response);
+            } else {
+              reject(new Error(response?.message || 'Failed to load data via WebSocket'));
+            }
+          });
+        });
+      } else {
+        const url = new URL(`${atob(STATS.WEBSOCKET_URL)}/api/battle-stats/stats`);
+        if (page) url.searchParams.set('page', page.toString());
+        if (limit !== undefined) url.searchParams.set('limit', limit.toString());
 
-      if (data.success) {
+        const response = await this.makeServerRequest(url.toString(), {
+          method: 'GET',
+          headers: {
+            'X-API-Key': accessKey
+          }
+        });
+        
+        data = response.data || response;
+      }
+
+      if (data && data.success !== false) {
         if (data.BattleStats) {
           const normalized = {};
           Object.entries(data.BattleStats).forEach(([arenaId, battleWrapper]) => {
@@ -195,6 +294,7 @@ class BattleDataManager {
           });
           this.BattleStats = normalized;
         }
+        
         if (data.PlayerInfo) {
           const normalizedPlayerInfo = {};
           Object.entries(data.PlayerInfo).forEach(([playerId, playerWrapper]) => {
@@ -206,6 +306,8 @@ class BattleDataManager {
           });
           this.PlayersInfo = normalizedPlayerInfo;
         }
+
+        this.saveState();
       }
 
       return true;
@@ -220,11 +322,33 @@ class BattleDataManager {
     if (!accessKey) {
       throw new Error('Access key not found');
     }
-    await this.makeServerRequest(`${atob(STATS.BATTLE)}clear/${accessKey}`, {
-      method: 'GET'
-    });
-    await this.refreshLocalData();
-    this.eventsHistory.emit('historyCleared');
+    
+    try {
+      if (this.socket && this.socket.connected) {
+        await new Promise((resolve, reject) => {
+          this.socket.emit('clearStats', { key: accessKey }, (response) => {
+            if (response && response.success) {
+              resolve();
+            } else {
+              reject(new Error(response?.message || 'Failed to clear data via WebSocket'));
+            }
+          });
+        });
+      } else {
+        await this.makeServerRequest(`${atob(STATS.WEBSOCKET_URL)}/api/battle-stats/clear`, {
+          method: 'DELETE',
+          headers: {
+            'X-API-Key': accessKey
+          }
+        });
+      }
+
+      await this.refreshLocalData();
+      this.eventsHistory.emit('historyCleared');
+    } catch (error) {
+      console.error('Error clearing data on server:', error);
+      throw error;
+    }
   }
 
   async deleteBattle(battleId) {
@@ -234,12 +358,29 @@ class BattleDataManager {
         throw new Error('Access key not found');
       }
       
-      await this.makeServerRequest(`${atob(STATS.BATTLE)}${accessKey}/${battleId}`, {
-        method: 'DELETE'
-      });
+      if (this.socket && this.socket.connected) {
+        await new Promise((resolve, reject) => {
+          this.socket.emit('deleteBattle', { 
+            key: accessKey,
+            battleId 
+          }, (response) => {
+            if (response && response.success) {
+              resolve();
+            } else {
+              reject(new Error(response?.message || 'Failed to delete battle via WebSocket'));
+            }
+          });
+        });
+      } else {
+        await this.makeServerRequest(`${atob(STATS.WEBSOCKET_URL)}/api/battle-stats/battle/${battleId}`, {
+          method: 'DELETE',
+          headers: {
+            'X-API-Key': accessKey
+          }
+        });
+      }
 
       await this.refreshLocalData();
-
       this.eventsHistory.emit('battleDeleted', battleId);
       return true;
     } catch (error) {
@@ -332,13 +473,32 @@ class BattleDataManager {
         return false;
       }
 
-      await this.loadFromServer();
+      const accessKey = this.getAccessKey();
+      if (!accessKey) {
+        throw new Error('Access key not found');
+      }
 
-      this.mergeImportedData(importedData);
-
-      const saveSuccess = await this.saveToServer();
-      if (!saveSuccess) {
-        throw new Error('Failed to save data to server');
+      if (this.socket && this.socket.connected) {
+        await new Promise((resolve, reject) => {
+          this.socket.emit('importStats', { 
+            key: accessKey,
+            body: importedData
+          }, (response) => {
+            if (response && response.success) {
+              resolve();
+            } else {
+              reject(new Error(response?.message || 'Failed to import data via WebSocket'));
+            }
+          });
+        });
+      } else {
+        await this.makeServerRequest(`${atob(STATS.WEBSOCKET_URL)}/api/battle-stats/import`, {
+          method: 'POST',
+          headers: {
+            'X-API-Key': accessKey
+          },
+          body: JSON.stringify(importedData)
+        });
       }
 
       await this.refreshLocalData();
@@ -353,26 +513,6 @@ class BattleDataManager {
 
   isValidImportData(data) {
     return data && typeof data === 'object';
-  }
-
-  mergeImportedData(importedData) {
-    Object.entries(importedData).forEach(([arenaId, battleData]) => {
-      if (!battleData || typeof battleData !== 'object') return;
-      if (!this.validateBattleData(battleData)) return;
-
-      if (this.BattleStats[arenaId]) {
-        this.BattleStats[arenaId] = {
-          ...this.BattleStats[arenaId],
-          ...battleData,
-          players: {
-            ...this.BattleStats[arenaId].players,
-            ...battleData.players
-          }
-        };
-      } else {
-        this.BattleStats[arenaId] = battleData;
-      }
-    });
   }
 
   async refreshLocalData() {
@@ -430,6 +570,5 @@ class BattleDataManager {
     });
   }
 }
-
 
 export default BattleDataManager;
