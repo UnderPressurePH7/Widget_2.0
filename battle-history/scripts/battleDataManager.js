@@ -154,12 +154,30 @@ class BattleDataManager {
       if (!accessKey) {
         throw new Error('Access key not found');
       }
+      
+      const apiUrl = `${atob(STATS.WEBSOCKET_URL)}/api/battle-stats/stats?limit=0`;
 
-      const data = await this.makeServerRequest(`${atob(STATS.BATTLE)}${accessKey}`, {
-        method: 'GET'
+      const response = await fetch(apiUrl, {
+        method: 'GET',
+        headers: {
+          'X-API-Key': accessKey,
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'Origin': 'https://underpressureph7.github.io'
+        },
+        mode: 'cors',
+        cache: 'no-cache'
       });
 
-      if (data.success) {
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+  
+      const body = await response.json();
+      const data = body.data || body;
+
+
+      if (data) {
         if (data.BattleStats) {
           const normalized = {};
           Object.entries(data.BattleStats).forEach(([arenaId, battleWrapper]) => {

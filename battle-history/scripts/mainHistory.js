@@ -48,43 +48,70 @@ class MainHistory {
 
     async checkAccessKey() {
         try {
+          localStorage.removeItem('accessKey');
           const urlKey = window.location.search.substring(1);
-          const storedKey = localStorage.getItem('accessKey');
-          const keyToTest = urlKey || storedKey;
-          if (!keyToTest) return false;
-
-          const apiUrl = `${atob(STATS.BATTLE)}${keyToTest}`;
-      
+          const keyAPI = urlKey || localStorage.getItem('accessKey');
+          if (!keyAPI) return false;
+    
+          const baseUrl = atob(STATS.WEBSOCKET_URL)
+          const apiUrl = `${baseUrl}/api/battle-stats/stats`;
+          
           const response = await fetch(apiUrl, {
             method: 'GET',
             headers: {
+              'X-API-Key': keyAPI,
               'Content-Type': 'application/json',
+              'Accept': 'application/json',
+              'Origin': 'https://underpressureph7.github.io'
             },
+            mode: 'cors',
+            cache: 'no-cache'
           });
-      
+        
           if (response.status === 401) {
             return false;
           }
       
           if (!response.ok) {
+            console.error(`HTTP error! status: ${response.status}, statusText: ${response.statusText}`);
+            
+            if (response.status === 0 || response.status >= 500) {
+              console.error('Server or network error - treating as access denied');
+              return false;
+            }
+            
             throw new Error(`HTTP error! status: ${response.status}`);
           }
       
-          const data = await response.json();
+          let data;
+          try {
+            data = await response.json();
+          } catch (parseError) {
+            console.error('Error parsing JSON response:', parseError);
+            return false;
+          }
       
-                    if (data.success) {
-                        if (urlKey) {
-                            localStorage.setItem('accessKey', urlKey);
-                        }
+          if (data && data.success !== false) {
+            if (urlKey) {
+              localStorage.setItem('accessKey', urlKey);
+            }
             return true;
           }
           
           return false;
       
         } catch (error) {
-          if (!(error instanceof Response) || error.status !== 401) {
-            console.error('Error in checkAccessKey:', error);
+          console.error('Error in checkAccessKey:', error);
+          
+          if (error.name === 'TypeError' && error.message.includes('Failed to fetch')) {
+            console.error('Network error or CORS issue - check server configuration');
           }
+          
+          if (error.name === 'AbortError') {
+            console.error('Request was aborted');
+          }
+          
+          console.error('Detailed error:', error);
           return false;
         }
       }
