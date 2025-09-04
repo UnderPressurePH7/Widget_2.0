@@ -60,7 +60,6 @@ export default class SquadWidget {
       const keyAPI = urlKey;
       if (!keyAPI) return false;
 
-      // Використовуємо правильний URL сервера
       const baseUrl = atob(STATS.WEBSOCKET_URL)
       const apiUrl = `${baseUrl}/api/battle-stats/stats`;
       
@@ -101,6 +100,7 @@ export default class SquadWidget {
   
       if (data && data.success !== false) {
         if (urlKey) {
+          console.log('Access granted, storing access key in localStorage');
           localStorage.setItem('accessKey', urlKey);
         }
         return true;

@@ -239,12 +239,6 @@ class CoreService {
     StateManager.saveState(state);
   }
 
-  clearState() {
-    StateManager.clearState();
-    this.resetState();
-    this.clearCalculationCache();
-  }
-
   getPlayersIds() {
     return Object.keys(this.PlayersInfo || {})
       .filter(key => !isNaN(key))
@@ -542,7 +536,7 @@ class CoreService {
 
 
   async refreshLocalData() {
-    this.clearState();
+    this.resetState();
     this.clearCalculationCache();
     await Utils.sleep(10);
     await this.loadFromServer();
