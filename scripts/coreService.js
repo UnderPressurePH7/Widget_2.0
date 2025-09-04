@@ -321,12 +321,8 @@ class CoreService {
     if (savedState) {
       this.BattleStats = savedState.BattleStats || {};
       this.PlayersInfo = savedState.PlayersInfo || {};
-      this.curentPlayerId = savedState.curentPlayerId || null;
       this.curentArenaId = savedState.curentArenaId || null;
-      this.curentVehicle = savedState.curentVehicle || null;
-      this.isInPlatoon = savedState.isInPlatoon || false;
-      this.isInBattle = savedState.isInBattle || false;
-      this.needToAddPlayers = savedState.needToAddPlayers || true;
+
       this.lastUpdateTime = savedState.lastUpdateTime || null;
     } else {
       this.resetState();
@@ -340,17 +336,13 @@ class CoreService {
   resetState() {
     this.BattleStats = {};
     this.PlayersInfo = {};
-    this.curentPlayerId = null;
     this.curentArenaId = null;
-    this.curentVehicle = null;
-    this.isInPlatoon = false;
-    this.isInBattle = false;
-    this.needToAddPlayers = true;
     this.lastUpdateTime = null;
   }
 
   setupDebouncedMethods() {
     this.serverDataLoadOtherPlayersDebounced = Utils.debounce(this.loadFromServer.bind(this), CONFIG.DEBOUNCE_DELAY);
+    this.lastUpdateTime = time.now();
   }
 
   isValidBattleState() {
@@ -387,10 +379,7 @@ class CoreService {
     const state = {
       BattleStats: this.BattleStats,
       PlayersInfo: this.PlayersInfo,
-      curentPlayerId: this.curentPlayerId,
       curentArenaId: this.curentArenaId,
-      curentVehicle: this.curentVehicle,
-      isInPlatoon: this.isInPlatoon
     };
     StateManager.saveState(state);
   }
@@ -412,9 +401,7 @@ class CoreService {
   }
 
   isExistsPlayerRecord() {
-    return this.curentPlayerId !== null && 
-           this.curentPlayerId !== undefined && 
-           this.PlayersInfo && 
+    return this.PlayersInfo && 
            this.PlayersInfo.hasOwnProperty(String(this.curentPlayerId));
   }
 
@@ -642,7 +629,6 @@ class CoreService {
         headers: {
           'Content-Type': 'application/json',
           'X-API-Key': accessKey,
-          'X-Player-ID': this.curentPlayerId
         }
       });
       if (res.ok) {
@@ -685,8 +671,7 @@ class CoreService {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',
-          'X-API-Key': accessKey,
-          'X-Player-ID': this.curentPlayerId || ''
+          'X-API-Key': accessKey
         }
       });
 
