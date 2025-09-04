@@ -66,9 +66,12 @@ export default class SquadWidget {
         method: 'GET',
         headers: {
           'X-API-Key': keyAPI,
-          'Content-Type': 'application/json'
-          
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'Origin': 'https://underpressureph7.github.io'
         },
+        mode: 'cors',
+        cache: 'no-cache'
       });
     
       if (response.status === 401) {
@@ -76,12 +79,25 @@ export default class SquadWidget {
       }
   
       if (!response.ok) {
+        console.error(`HTTP error! status: ${response.status}, statusText: ${response.statusText}`);
+        
+        if (response.status === 0 || response.status >= 500) {
+          console.error('Server or network error - treating as access denied');
+          return false;
+        }
+        
         throw new Error(`HTTP error! status: ${response.status}`);
       }
   
-      const data = await response.json();
+      let data;
+      try {
+        data = await response.json();
+      } catch (parseError) {
+        console.error('Error parsing JSON response:', parseError);
+        return false;
+      }
   
-      if (data.success) {
+      if (data && data.success !== false) {
         if (urlKey) {
           localStorage.setItem('accessKey', urlKey);
         }
@@ -92,9 +108,16 @@ export default class SquadWidget {
   
     } catch (error) {
       console.error('Error in checkAccessKey:', error);
-      if (!(error instanceof Response) || error.status !== 401) {
-        console.error('Detailed error:', error);
+      
+      if (error.name === 'TypeError' && error.message.includes('Failed to fetch')) {
+        console.error('Network error or CORS issue - check server configuration');
       }
+      
+      if (error.name === 'AbortError') {
+        console.error('Request was aborted');
+      }
+      
+      console.error('Detailed error:', error);
       return false;
     }
   }
@@ -135,8 +158,8 @@ export default class SquadWidget {
 
         message.innerHTML = `
           <h2 style="color: #ff4444; margin-bottom: 1em; font-size: 1.5em;">Доступ заборонено</h2>
-          <p style="margin-bottom: 1em; font-size: 1.1em;">Невірний ключ доступу</p>
-          <p style="font-size: 0.9em; color: #cccccc;">Перевірте правильність посилання</p>
+          <p style="margin-bottom: 1em; font-size: 1.1em;">Невірний ключ доступу або помилка сервера</p>
+          <p style="font-size: 0.9em; color: #cccccc;">Перевірте правильність посилання або спробуйте пізніше</p>
         `;
 
         container.appendChild(message);
@@ -155,7 +178,7 @@ export default class SquadWidget {
       }
     } catch (error) {
       console.error('Error in showAccessDenied:', error);
-      alert('Доступ заборонено. Невірний ключ доступу.');
+      alert('Доступ заборонено. Невірний ключ доступу або помилка сервера.');
     }
   }
 }
