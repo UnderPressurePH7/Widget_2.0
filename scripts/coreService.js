@@ -37,7 +37,6 @@ class CoreService {
       });
 
       this.socket.on('connect', () => {
-        console.log('Connected to WebSocket server');
         this.socket.emit('getStats', { key: accessKey }, (response) => {
           if (response && response.status === 200) {
             this.handleServerData(response);
@@ -50,6 +49,8 @@ class CoreService {
         });
       });
 
+      this.socket.on('statsUpdated', (data) => {
+        if (data && data.key === accessKey) {
           this.socket.emit('getStats', { key: accessKey }, (response) => {
             if (response && response.status === 200) {
               const oldPlayersInfo = JSON.stringify(this.PlayersInfo);
@@ -71,118 +72,11 @@ class CoreService {
               }
             }
           });
-
-    } catch (error) {
-      console.error('WebSocket initialization error:', error);
-    }
-  }
-
-  handlePlayersInfoUpdate(playersInfo) {
-    if (!playersInfo) return;
-    
-    console.log('Updating PlayersInfo from WebSocket:', playersInfo);
-    
-    const oldPlayersInfo = JSON.stringify(this.PlayersInfo);
-    
-    Object.entries(playersInfo).forEach(([playerId, playerInfo]) => {
-      if (typeof playerInfo === 'object' && playerInfo._id) {
-        this.PlayersInfo[playerId] = playerInfo._id;
-      } else if (typeof playerInfo === 'string') {
-        this.PlayersInfo[playerId] = playerInfo;
-      } else {
-        this.PlayersInfo[playerId] = playerInfo;
-      }
-    });
-    
-    const newPlayersInfo = JSON.stringify(this.PlayersInfo);
-    
-    if (oldPlayersInfo !== newPlayersInfo) {
-      console.log('PlayersInfo changed, updating UI');
-      this.clearCalculationCache();
-      this.eventsCore.emit('statsUpdated');
-      this.saveState();
-    }
-  }
-
-  handleBattleStatsUpdate(battleStats) {
-    if (!battleStats) return;
-    
-    console.log('Updating BattleStats from WebSocket:', battleStats);
-    
-    const oldBattleStats = JSON.stringify(this.BattleStats);
-    
-    const normalized = {};
-    Object.entries(battleStats).forEach(([arenaId, battle]) => {
-      const battleData = (battle && typeof battle === 'object' && battle._id) ? battle._id : battle;
-      
-      const players = {};
-      const rawPlayers = battleData?.players || {};
-      Object.entries(rawPlayers).forEach(([pid, playerData]) => {
-        const p = (playerData && typeof playerData === 'object' && playerData._id) ? playerData._id : playerData;
-        
-        const kills = typeof p.kills === 'number' ? p.kills : 0;
-        const damage = typeof p.damage === 'number' ? p.damage : 0;
-        const points = typeof p.points === 'number' ? p.points : (damage + kills * GAME_POINTS.POINTS_PER_FRAG);
-
-        const existingPlayer = this.BattleStats?.[arenaId]?.players?.[pid];
-        if (existingPlayer) {
-          players[pid] = {
-            name: p.name || existingPlayer.name || this.PlayersInfo?.[pid] || 'Unknown Player',
-            damage: Math.max(damage || 0, existingPlayer.damage || 0),
-            kills: Math.max(kills || 0, existingPlayer.kills || 0),
-            points: Math.max(points || 0, existingPlayer.points || 0),
-            vehicle: p.vehicle || existingPlayer.vehicle || 'Unknown Vehicle'
-          };
-        } else {
-          players[pid] = {
-            name: p.name || this.PlayersInfo?.[pid] || 'Unknown Player',
-            damage,
-            kills,
-            points,
-            vehicle: p.vehicle || 'Unknown Vehicle'
-          };
         }
       });
 
-      const existingBattle = this.BattleStats?.[arenaId];
-      
-      const localDuration = existingBattle?.duration ?? 0;
-      const serverDuration = battleData.duration ?? 0;
-      const finalDuration = Math.max(localDuration, serverDuration);
-      
-      const localWin = existingBattle?.win ?? -1;
-      const serverWin = typeof battleData.win === 'number' ? battleData.win : -1;
-      const finalWin = serverWin !== -1 ? serverWin : localWin;
-      
-      const finalMapName = (existingBattle?.mapName && existingBattle.mapName !== 'Unknown Map') 
-      ? existingBattle.mapName 
-      : (battleData.mapName || 'Unknown Map');
-
-      normalized[arenaId] = {
-        startTime: battleData.startTime || (existingBattle?.startTime) || Date.now(),
-        duration: finalDuration,
-        win: finalWin,
-        mapName: finalMapName,
-        players
-      };
-    });
-    
-    Object.entries(this.BattleStats || {}).forEach(([arenaId, localBattle]) => {
-      if (!normalized[arenaId]) {
-        normalized[arenaId] = localBattle;
-      }
-    });
-    
-    this.BattleStats = normalized;
-    
-    const newBattleStats = JSON.stringify(this.BattleStats);
-    
-    if (oldBattleStats !== newBattleStats) {
-      console.log('BattleStats changed, updating UI');
-      this.clearBestWorstCache();
-      this.clearCalculationCache();
-      this.eventsCore.emit('statsUpdated');
-      this.saveState();
+    } catch (error) {
+      console.error('WebSocket initialization error:', error);
     }
   }
 
