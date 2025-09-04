@@ -248,7 +248,8 @@ class UIService {
         newRestoreBtn.textContent = 'Видалення...';
 
         await this.core.clearServerData();
-        this.core.clearState();
+        this.core.resetState();
+        this.core.clearCalculationCache();
         
         this.lastPlayersData = null;
         this.lastTeamData = null;
