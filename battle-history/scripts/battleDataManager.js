@@ -40,7 +40,6 @@ class BattleDataManager {
 
      this.socket.on('connect', () => {
        console.log('Connected to history WebSocket server');
-       this.forceLoadFromServer();
      });
 
      this.socket.on('statsUpdated', (data) => {
@@ -81,6 +80,8 @@ class BattleDataManager {
      this.PlayersInfo = {};
      
      await this.loadFromServer();
+     
+     this.eventsHistory.emit('historyUpdated'); 
      
      console.log('Data loaded from server:', {
        battles: Object.keys(this.BattleStats || {}).length,
