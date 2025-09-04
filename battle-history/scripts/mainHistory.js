@@ -9,11 +9,15 @@ class MainHistory {
 
     async init() {
         try {
+            console.log('Initializing MainHistory...');
+            
             const hasAccess = await this.checkAccessKey();
             if (!hasAccess) {
                 this.showAccessDenied();
                 return;
             }
+            
+            console.log('Access verified, initializing services...');
             this.initializeServices();
         } catch (error) {
             console.error('Error in init:', error);
@@ -23,75 +27,75 @@ class MainHistory {
 
     initializeServices() {
         try {
-            this.dataManager = new BattleDataManager();
-
-            this.uiHandler = new BattleUIHandler(this.dataManager);
-
-            this.initialize();
+            this.uiHandler = new BattleUIHandler();
+            
+            console.log('Services initialized successfully');
         } catch (error) {
             console.error('Error initializing services:', error);
-            this.showError('Error when initializing services');
-        }
-    }
-
-    async initialize() {
-        try {
-
-            await this.dataManager.loadFromServer();
-
-            this.uiHandler.initializeUI();
-        } catch (error) {
-            console.error('Error in initialize:', error);
-            this.showError('Error loading data');
+            this.showError('Помилка ініціалізації сервісів');
         }
     }
 
     async checkAccessKey() {
         try {
-          const urlKey = window.location.search.substring(1);
-          const storedKey = localStorage.getItem('accessKey');
-          const keyToTest = urlKey || storedKey;
-          if (!keyToTest) return false;
+            const urlKey = window.location.search.substring(1);
+            const storedKey = localStorage.getItem('accessKey');
+            const keyToTest = urlKey || storedKey;
+            
+            console.log('Testing access key:', keyToTest ? keyToTest.substring(0, 10) + '...' : 'none');
+            
+            if (!keyToTest) {
+                console.error('No access key found');
+                return false;
+            }
 
-          const apiUrl = `${atob(STATS.WEBSOCKET_URL)}/api/battle-stats/stats`;
-      
-          const response = await fetch(apiUrl, {
-            method: 'GET',
-            headers: {
-              'Content-Type': 'application/json',
-              'X-API-Key': keyToTest
-            },
-          });
-      
-          if (response.status === 401) {
+            const apiUrl = `${atob(STATS.WEBSOCKET_URL)}/api/battle-stats/stats`;
+        
+            const response = await fetch(apiUrl, {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-API-Key': keyToTest
+                },
+            });
+        
+            console.log('Access key check response:', response.status);
+        
+            if (response.status === 401) {
+                console.error('Access denied: Invalid API key');
+                return false;
+            }
+        
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+        
+            const data = await response.json();
+            console.log('Access key check data:', data);
+        
+            if (data.success) {
+                if (urlKey) {
+                    localStorage.setItem('accessKey', urlKey);
+                    console.log('Access key saved to localStorage');
+                }
+                return true;
+            }
+            
+            console.error('Access denied: API returned success=false');
             return false;
-          }
-      
-          if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-          }
-      
-          const data = await response.json();
-      
-                    if (data.success) {
-                        if (urlKey) {
-                            localStorage.setItem('accessKey', urlKey);
-                        }
-            return true;
-          }
-          
-          return false;
-      
+        
         } catch (error) {
-          if (!(error instanceof Response) || error.status !== 401) {
-            console.error('Error in checkAccessKey:', error);
-          }
-          return false;
+            if (!(error instanceof Response) || error.status !== 401) {
+                console.error('Error in checkAccessKey:', error);
+            }
+            return false;
         }
-      }
+    }
 
     showAccessDenied() {
         try {
+            console.log('Showing access denied message');
+            
             const container = document.createElement('div');
             container.style.cssText = `
                 position: fixed;
@@ -111,13 +115,16 @@ class MainHistory {
                 text-align: center;
                 padding: 2em;
                 border-radius: 1em;
-                background-color: rgba(0, 0, 0, 0.7);
+                background-color: rgba(20, 20, 20, 0.95);
                 color: #ffffff;
+                border: 2px solid #ff4444;
+                box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
             `;
 
             message.innerHTML = `
-                <h2>Доступ заборонено</h2>
-                <p>Невірний ключ доступу</p>
+                <h2 style="color: #ff4444; margin-bottom: 1em;">Доступ заборонено</h2>
+                <p style="margin-bottom: 1em;">Невірний ключ доступу або відсутній доступ до бази даних</p>
+                <p style="color: #aaa; font-size: 0.9em;">Перевірте правильність посилання</p>
             `;
 
             container.appendChild(message);
@@ -159,6 +166,7 @@ class MainHistory {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
+    console.log('DOM loaded, creating MainHistory instance');
     window.mainHistory = new MainHistory();
 });
 

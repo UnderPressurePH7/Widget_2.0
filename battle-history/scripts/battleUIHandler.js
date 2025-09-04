@@ -26,7 +26,6 @@ class BattleUIHandler {
         
         this.setupEventListeners();
         this.setupTabSystem();
-        this.initializeUI();
 
         this.dataManager.eventsHistory.on('statsUpdated', () => {
             this.updateStats();
@@ -39,7 +38,6 @@ class BattleUIHandler {
         });
         
         this.dataManager.eventsHistory.on('battleDeleted', (battleId) => {
-
             if (battleId === this.worstBattleId) {
                 this.worstBattleId = null;
             }
@@ -65,11 +63,23 @@ class BattleUIHandler {
             
             this.findBestAndWorstBattle();
         });
+
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', () => {
+                this.initializeUI();
+            });
+        } else {
+            this.initializeUI();
+        }
     }
 
     async initializeUI() {
         try {
-            await this.dataManager.loadFromServer();
+            console.log('Initializing UI...');
+            
+            this.showLoadingIndicator();
+            
+            await this.dataManager.forceLoadFromServer();
             
             this.findBestAndWorstBattle();
             this.updateBattleTable();
@@ -79,10 +89,100 @@ class BattleUIHandler {
             this.updateVehiclesTab();
             
             this.chartManager.initializeCharts();
+            
+            this.hideLoadingIndicator();
+            
+            console.log('UI initialized successfully');
         } catch (error) {
             console.error('Error during UI initialization:', error);
-            this.showNotification('Error loading data', 'error');
+            this.hideLoadingIndicator();
+            this.showNotification('Помилка завантаження даних з сервера', 'error');
+            
+            this.showEmptyState();
         }
+    }
+
+    showLoadingIndicator() {
+        const container = document.getElementById('battles-tab');
+        if (!container) return;
+        
+        const loadingDiv = document.createElement('div');
+        loadingDiv.id = 'loading-indicator';
+        loadingDiv.innerHTML = `
+            <div style="
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                height: 200px;
+                flex-direction: column;
+                color: #fff;
+            ">
+                <div style="
+                    border: 4px solid #333;
+                    border-top: 4px solid #4e54c8;
+                    border-radius: 50%;
+                    width: 40px;
+                    height: 40px;
+                    animation: spin 1s linear infinite;
+                    margin-bottom: 10px;
+                "></div>
+                <p>Завантаження даних з сервера...</p>
+            </div>
+        `;
+        
+        if (!document.getElementById('spinner-style')) {
+            const style = document.createElement('style');
+            style.id = 'spinner-style';
+            style.textContent = `
+                @keyframes spin {
+                    0% { transform: rotate(0deg); }
+                    100% { transform: rotate(360deg); }
+                }
+            `;
+            document.head.appendChild(style);
+        }
+        
+        const tableContainer = container.querySelector('.battle-table-container');
+        if (tableContainer) {
+            tableContainer.innerHTML = '';
+            tableContainer.appendChild(loadingDiv);
+        }
+    }
+
+    hideLoadingIndicator() {
+        const loadingIndicator = document.getElementById('loading-indicator');
+        if (loadingIndicator) {
+            loadingIndicator.remove();
+        }
+    }
+
+    showEmptyState() {
+        const container = document.querySelector('.battle-table-container');
+        if (!container) return;
+        
+        container.innerHTML = `
+            <div style="
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                height: 200px;
+                flex-direction: column;
+                color: #aaa;
+            ">
+                <i class="fas fa-database" style="font-size: 48px; margin-bottom: 20px; opacity: 0.5;"></i>
+                <h3>Немає даних</h3>
+                <p>Історія боїв порожня або не вдалося завантажити дані з сервера</p>
+                <button onclick="window.location.reload()" style="
+                    margin-top: 15px;
+                    padding: 8px 16px;
+                    background-color: #4e54c8;
+                    color: white;
+                    border: none;
+                    border-radius: 4px;
+                    cursor: pointer;
+                ">Оновити сторінку</button>
+            </div>
+        `;
     }
 
     setupTabSystem() {

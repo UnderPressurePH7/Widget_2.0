@@ -5,10 +5,16 @@ import { Utils } from './utils.js';
 
 class BattleDataManager {
   constructor() {
-    this.initializeState();
+    this.resetLocalState();
     this.filteredBattles = [];
     this.eventsHistory = new EventEmitter();
+    this.dataLoadedFromServer = false;
     this.initializeSocket();
+  }
+
+  resetLocalState() {
+    this.BattleStats = {};
+    this.PlayersInfo = {};
   }
 
   initializeSocket() {
@@ -34,11 +40,12 @@ class BattleDataManager {
 
       this.socket.on('connect', () => {
         console.log('Connected to history WebSocket server');
+        this.forceLoadFromServer();
       });
 
       this.socket.on('statsUpdated', (data) => {
         if (data && data.key === accessKey) {
-          this.loadFromServer();
+          this.forceLoadFromServer();
         }
       });
 
@@ -46,13 +53,14 @@ class BattleDataManager {
         if (data && data.key === accessKey) {
           this.BattleStats = {};
           this.PlayersInfo = {};
+          this.clearLocalStorage();
           this.eventsHistory.emit('historyCleared');
         }
       });
 
       this.socket.on('battleDeleted', (data) => {
         if (data && data.key === accessKey) {
-          this.loadFromServer();
+          this.forceLoadFromServer();
         }
       });
 
@@ -65,17 +73,54 @@ class BattleDataManager {
     }
   }
 
+  async forceLoadFromServer() {
+    try {
+      console.log('Force loading data from server...');
+      
+      this.BattleStats = {};
+      this.PlayersInfo = {};
+      
+      await this.loadFromServer();
+      
+      console.log('Data loaded from server:', {
+        battles: Object.keys(this.BattleStats || {}).length,
+        players: Object.keys(this.PlayersInfo || {}).length
+      });
+      
+    } catch (error) {
+      console.error('Error in forceLoadFromServer:', error);
+      this.initializeState();
+    }
+  }
+
+  clearLocalStorage() {
+    try {
+      StateManager.clearState();
+    } catch (error) {
+      console.error('Error clearing localStorage:', error);
+    }
+  }
+
   initializeState() {
     const savedState = StateManager.loadState();
-    this.BattleStats = savedState?.BattleStats || {};
-    this.PlayersInfo = savedState?.PlayersInfo || {};
+    if (savedState && Object.keys(this.BattleStats || {}).length === 0) {
+      this.BattleStats = savedState?.BattleStats || {};
+      this.PlayersInfo = savedState?.PlayersInfo || {};
+      console.warn('Loading from localStorage as fallback - this should not happen in history view');
+    }
   }
 
   saveState() {
-    StateManager.saveState({
-      BattleStats: this.BattleStats,
-      PlayersInfo: this.PlayersInfo
-    });
+    try {
+      if (this.dataLoadedFromServer) {
+        StateManager.saveState({
+          BattleStats: this.BattleStats,
+          PlayersInfo: this.PlayersInfo
+        });
+      }
+    } catch (error) {
+      console.error('Error saving state:', error);
+    }
   }
 
   clearState() {
@@ -227,15 +272,19 @@ class BattleDataManager {
         throw new Error('Access key not found');
       }
 
+      console.log('Loading data from server with access key:', accessKey.substring(0, 10) + '...');
+
       let data;
       
       if (this.socket && this.socket.connected) {
+        console.log('Loading via WebSocket...');
         data = await new Promise((resolve, reject) => {
           this.socket.emit('getStats', { 
             key: accessKey,
             page,
             limit
           }, (response) => {
+            console.log('WebSocket response:', response);
             if (response && response.status === 200) {
               resolve(response);
             } else {
@@ -244,6 +293,7 @@ class BattleDataManager {
           });
         });
       } else {
+        console.log('Loading via REST API...');
         const url = new URL(`${atob(STATS.WEBSOCKET_URL)}/api/battle-stats/stats`);
         if (page) url.searchParams.set('page', page.toString());
         if (limit !== undefined) url.searchParams.set('limit', limit.toString());
@@ -256,9 +306,15 @@ class BattleDataManager {
         });
         
         data = response.data || response;
+        console.log('REST API response:', data);
       }
 
       if (data && data.success !== false) {
+        console.log('Processing server data...');
+        
+        this.BattleStats = {};
+        this.PlayersInfo = {};
+        
         if (data.BattleStats) {
           const normalized = {};
           Object.entries(data.BattleStats).forEach(([arenaId, battleWrapper]) => {
@@ -293,6 +349,7 @@ class BattleDataManager {
             };
           });
           this.BattleStats = normalized;
+          console.log('Loaded battles:', Object.keys(this.BattleStats).length);
         }
         
         if (data.PlayerInfo) {
@@ -305,9 +362,15 @@ class BattleDataManager {
             }
           });
           this.PlayersInfo = normalizedPlayerInfo;
+          console.log('Loaded players:', Object.keys(this.PlayersInfo).length);
         }
 
+        this.dataLoadedFromServer = true;
         this.saveState();
+        
+        console.log('Data successfully loaded from server');
+      } else {
+        console.warn('No data received from server or data.success === false');
       }
 
       return true;

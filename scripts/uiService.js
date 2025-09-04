@@ -7,9 +7,38 @@ class UIService {
     this.updateThrottle = Utils.throttle(this.updatePlayersUI.bind(this), CONFIG.THROTTLE_DELAY);
     this.boundHandlers = {}; 
     this.isProcessing = {};
+    this.lastPlayersData = null;
+    this.lastTeamData = null;
     
-    this.core.eventsCore.on('statsUpdated', this.updateThrottle);
+    this.core.eventsCore.on('statsUpdated', () => {
+      this.handleStatsUpdate();
+    });
+    
     this.setupEventListeners();
+  }
+
+  handleStatsUpdate() {
+    const currentPlayersData = JSON.stringify({
+      playersInfo: this.core.PlayersInfo,
+      battleStats: this.core.BattleStats
+    });
+    
+    const currentTeamData = JSON.stringify(this.core.calculateTeamData());
+    
+    const playersChanged = this.lastPlayersData !== currentPlayersData;
+    const teamStatsChanged = this.lastTeamData !== currentTeamData;
+    
+    if (playersChanged) {
+      console.log('Players data changed, updating UI');
+      this.updateThrottle();
+      this.lastPlayersData = currentPlayersData;
+    }
+    
+    if (teamStatsChanged) {
+      console.log('Team stats changed, updating UI');
+      this.updateTeamStatsUI();
+      this.lastTeamData = currentTeamData;
+    }
   }
 
   updatePlayersUI() {
@@ -114,7 +143,7 @@ class UIService {
 
   updateElement(id, value) {
     const element = document.getElementById(id);
-    if (element) {
+    if (element && element.textContent !== value) {
       element.textContent = value;
     }
   }
@@ -173,6 +202,10 @@ class UIService {
 
         await this.core.serverDataSave();
         await this.core.loadFromServer();
+        
+        this.lastPlayersData = null;
+        this.lastTeamData = null;
+        
         this.updatePlayersUI();
         this.core.saveState();
       } catch (error) {
@@ -218,6 +251,9 @@ class UIService {
 
         await this.core.clearServerData();
         this.core.clearState();
+        
+        this.lastPlayersData = null;
+        this.lastTeamData = null;
         
         this.updatePlayersUI();
         
@@ -281,6 +317,8 @@ class UIService {
   destroy() {
     this.isProcessing = {};
     this.boundHandlers = {};
+    this.lastPlayersData = null;
+    this.lastTeamData = null;
   }
 }
 
