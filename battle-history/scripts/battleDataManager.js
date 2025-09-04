@@ -233,16 +233,37 @@ class BattleDataManager {
     }
   }
 
-  async clearServerData() {
-    const accessKey = this.getAccessKey();
-    if (!accessKey) {
-      throw new Error('Access key not found');
+async clearServerData() {
+    try {
+      const accessKey = this.getAccessKey();
+      if (!accessKey) {
+        throw new Error('Access key not found');
+      }
+
+      const apiUrl = `${atob(STATS.WEBSOCKET_URL)}/api/battle-stats/clear`;
+
+      const response = await fetch(apiUrl, {
+        method: 'DELETE',
+        headers: {
+          'X-API-Key': accessKey,
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'Origin': 'https://underpressureph7.github.io'
+        },
+        mode: 'cors'
+      });
+
+      if (!response.ok) {
+        throw new Error(`Server error: ${response.status} ${response.statusText}`);
+      }
+
+      await this.refreshLocalData();
+      this.eventsHistory.emit('historyCleared');
+      
+    } catch (error) {
+        console.error('Error clearing server data:', error);
+        throw error; 
     }
-    await this.makeServerRequest(`${atob(STATS.BATTLE)}clear/${accessKey}`, {
-      method: 'GET'
-    });
-    await this.refreshLocalData();
-    this.eventsHistory.emit('historyCleared');
   }
 
 async deleteBattle(battleId) {
