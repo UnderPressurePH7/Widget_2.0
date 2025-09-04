@@ -29,13 +29,11 @@ class UIService {
     const teamStatsChanged = this.lastTeamData !== currentTeamData;
     
   if (playersChanged || Object.keys(this.core.PlayersInfo || {}).length > 0) {
-    console.log('Players data changed, updating UI');
     this.updateThrottle();
     this.lastPlayersData = currentPlayersData;
   }
     
     if (teamStatsChanged) {
-      console.log('Team stats changed, updating UI');
       this.updateTeamStatsUI();
       this.lastTeamData = currentTeamData;
     }
@@ -70,11 +68,8 @@ class UIService {
 
     playerIds.forEach(playerId => {
     const playerName = this.core.PlayersInfo[playerId];
+    console.log('Rendering player:', playerId, playerName);
     if (!playerName) return;
-
-    const hasBattleData = Object.values(this.core.BattleStats || {}).some(battle => 
-      battle.players && battle.players[playerId]
-    );
 
       const playerRow = this.createPlayerRow(playerId, playerRowStyle);
       container.appendChild(playerRow);
