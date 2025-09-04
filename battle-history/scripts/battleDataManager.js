@@ -81,8 +81,6 @@ class BattleDataManager {
      
      await this.loadFromServer();
      
-     this.eventsHistory.emit('historyUpdated'); 
-     
      console.log('Data loaded from server:', {
        battles: Object.keys(this.BattleStats || {}).length,
        players: Object.keys(this.PlayersInfo || {}).length

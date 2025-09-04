@@ -32,15 +32,6 @@ class BattleUIHandler {
             this.findBestAndWorstBattle();
         });
 
-        this.dataManager.eventsHistory.on('historyUpdated', () => {
-            this.findBestAndWorstBattle();
-            this.updateBattleTable();
-            this.updateStats();
-            this.setupFilters();
-            this.updatePlayersTab();
-            this.updateVehiclesTab();
-        });
-
         
         this.dataManager.eventsHistory.on('filtersApplied', (filteredBattles) => {
             this.findBestAndWorstBattle(filteredBattles);
