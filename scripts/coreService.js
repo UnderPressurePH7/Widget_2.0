@@ -50,9 +50,6 @@ class CoreService {
         });
       });
 
-      this.socket.on('statsUpdated', (data) => {
-        console.log('Received statsUpdated event:', data);
-        if (data && data.key === accessKey) {
           this.socket.emit('getStats', { key: accessKey }, (response) => {
             if (response && response.status === 200) {
               const oldPlayersInfo = JSON.stringify(this.PlayersInfo);
@@ -74,41 +71,7 @@ class CoreService {
               }
             }
           });
-        }
-      });
 
-      this.socket.on('playersInfoUpdated', (data) => {
-        console.log('Received playersInfoUpdated event:', data);
-        if (data && data.key === accessKey) {
-          this.handlePlayersInfoUpdate(data.playersInfo);
-        }
-      });
-
-      this.socket.on('battleStatsUpdated', (data) => {
-        console.log('Received battleStatsUpdated event:', data);
-        if (data && data.key === accessKey) {
-          this.handleBattleStatsUpdate(data.battleStats);
-        }
-      });
-
-      this.socket.on('playerJoined', (data) => {
-        console.log('Received playerJoined event:', data);
-        if (data && data.key === accessKey && data.playerId && data.playerName) {
-          this.addPlayer(data.playerId, data.playerName);
-        }
-      });
-
-      this.socket.on('connect_error', (error) => {
-        console.error('Socket connection error:', error);
-      });
-
-      this.socket.on('reconnect_failed', () => {
-        console.error('Socket reconnection failed.');
-      });
-
-      this.socket.on('error', (error) => {
-        console.error('Socket error:', error);
-      });
     } catch (error) {
       console.error('WebSocket initialization error:', error);
     }
@@ -390,19 +353,10 @@ class CoreService {
     this.clearCalculationCache();
   }
 
-  getPlayer(id) {
-    return this.PlayersInfo[id] || null;
-  }
-
   getPlayersIds() {
     return Object.keys(this.PlayersInfo || {})
       .filter(key => !isNaN(key))
       .map(Number);
-  }
-
-  isExistsPlayerRecord() {
-    return this.PlayersInfo && 
-           this.PlayersInfo.hasOwnProperty(String(this.curentPlayerId));
   }
 
   findBestAndWorstBattle() {
@@ -706,21 +660,6 @@ class CoreService {
 
     this.saveState();
   } 
-
-  addPlayer(playerId, playerName) {
-    if (!playerId || !playerName) return;
-    
-    const oldPlayersInfo = JSON.stringify(this.PlayersInfo);
-    
-    const newPlayersInfo = JSON.stringify(this.PlayersInfo);
-      
-    if (oldPlayersInfo !== newPlayersInfo) {
-        console.log('Player added, updating UI');
-        this.serverDataDebounced();
-        this.eventsCore.emit('statsUpdated');
-        this.saveState();
-    }
-  }
 }
 
 export default CoreService;
