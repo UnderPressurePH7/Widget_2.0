@@ -402,36 +402,6 @@ class CoreService {
     this.clearCalculationCache();
   }
 
-  initializeBattleStats(arenaId, playerId) {
-    let shouldUpdate = false;
-    
-    if (!this.BattleStats[arenaId]) {
-      this.BattleStats[arenaId] = {
-        startTime: Date.now(),
-        duration: 0,
-        win: -1,
-        mapName: 'Unknown Map',
-        players: {}
-      };
-      shouldUpdate = true;
-    }
-
-    if (!this.BattleStats[arenaId].players[playerId]) {
-      this.BattleStats[arenaId].players[playerId] = {
-        name: this.PlayersInfo[playerId] || 'Unknown Player',
-        damage: 0,
-        kills: 0,
-        points: 0,
-        vehicle: this.curentVehicle || 'Unknown Vehicle'
-      };
-      shouldUpdate = true;
-    }
-    
-    if (shouldUpdate) {
-      this.eventsCore.emit('statsUpdated');
-    }
-  }
-
   getPlayer(id) {
     return this.PlayersInfo[id] || null;
   }
@@ -644,96 +614,6 @@ class CoreService {
     return StateManager.getAccessKey();
   }
 
-  async saveToServer(retries = CONFIG.RETRY_ATTEMPTS) {
-    const accessKey = this.getAccessKey();
-    if (!accessKey) {
-      console.error('Access key not found.');
-      return;
-    }
-
-    const hasPlayerData = Object.values(this.BattleStats || {}).some(battle => 
-      battle.players && Object.keys(battle.players).length > 0
-    );
-
-    const dataToSend = {
-      key: accessKey,
-      playerId: this.curentPlayerId,
-      BattleStats: Object.fromEntries(Object.entries(this.BattleStats || {}).map(([arenaId, battle]) => {
-        const players = {};
-        Object.entries(battle.players || {}).forEach(([pid, p]) => {
-          players[pid] = {
-            name: p.name || 'Unknown Player',
-            damage: p.damage || 0,
-            kills: p.kills || 0,
-            points: p.points || 0,
-            vehicle: p.vehicle || 'Unknown Vehicle'
-          };
-        });
-        return [arenaId, { 
-          startTime: battle.startTime || Date.now(),
-          duration: battle.duration || 0,
-          win: battle.win !== undefined ? battle.win : -1,
-          mapName: battle.mapName || 'Unknown Map',
-          players
-        }];
-      })),
-      PlayerInfo: Object.fromEntries(Object.entries(this.PlayersInfo || {}).map(([pid, nickname]) => [
-        pid, 
-        { _id: typeof nickname === 'string' ? nickname : (nickname._id || nickname.name || 'Unknown Player') }
-      ]))
-    };
-    
-    if (this.socket && this.socket.connected) {
-      let saveCallbackReceived = false;
-      let fallbackUsed = false;
-      
-      this.socket.emit('updateStats', dataToSend, (response) => {
-        if (!fallbackUsed) {
-          saveCallbackReceived = true;
-          if (response && response.status === 202) {
-          } else {
-            console.error('Error updating stats via WebSocket:', response?.message || 'Unknown error');
-          }
-        }
-      });
-      
-      setTimeout(async () => {
-        if (!saveCallbackReceived && !fallbackUsed) {
-          fallbackUsed = true;
-          await this.saveViaREST(dataToSend, accessKey);
-        }
-      }, 3000);
-      
-      return;
-    }
-    await this.saveViaREST(dataToSend, accessKey);
-  }
-
-  async saveViaREST(data, accessKey) {
-    try {
-      const response = await fetch(`${atob(STATS.WEBSOCKET_URL)}/api/battle-stats/update-stats`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-API-Key': accessKey,
-          'X-Player-ID': this.curentPlayerId || ''
-        },
-        body: JSON.stringify(data)
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const result = await response.json();
-      if (!result.success) {
-        throw new Error(result.message || 'Failed to save data');
-      }
-    } catch (error) {
-      console.error('Error saving data via REST:', error);
-      throw error;
-    }
-  }
 
   async loadFromServer() {
     const accessKey = this.getAccessKey();
@@ -910,80 +790,6 @@ class CoreService {
     }
   }
 
-  async serverDataSave() {
-    try {
-      await this.saveToServer();
-    } catch (error) {
-      console.error('Error in serverDataSave:', error);
-    }
-  }
-
-  async serverData() {
-    try {
-      const oldStats = JSON.stringify(this.BattleStats);
-      await this.saveToServer();
-      this.eventsCore.emit('statsUpdated');
-      if (this.isDataChanged(this.BattleStats, JSON.parse(oldStats))) {
-        this.saveState();
-      }
-    } catch (error) {
-      console.error('Error in serverData:', error);
-    }
-  }
-
-  updateBattleData(battleData) {
-    if (!battleData || !battleData.arenaId || !battleData.playerId) return;
-
-    const arenaId = battleData.arenaId;
-    const playerId = battleData.playerId;
-
-    this.curentArenaId = arenaId;
-    this.curentPlayerId = playerId;
-    
-    if (battleData.playerName && !this.PlayersInfo[playerId]) {
-      this.PlayersInfo[playerId] = battleData.playerName;
-    }
-
-    this.initializeBattleStats(arenaId, playerId);
-
-    if (battleData.mapName) {
-      this.BattleStats[arenaId].mapName = battleData.mapName;
-    }
-
-    if (battleData.vehicle) {
-      this.curentVehicle = battleData.vehicle;
-      this.BattleStats[arenaId].players[playerId].vehicle = battleData.vehicle;
-    }
-
-    if (battleData.duration !== undefined) {
-      this.BattleStats[arenaId].duration = battleData.duration;
-    }
-
-    if (battleData.win !== undefined) {
-      this.BattleStats[arenaId].win = battleData.win;
-    }
-
-    if (battleData.damage !== undefined) {
-      const currentDamage = this.BattleStats[arenaId].players[playerId].damage || 0;
-      this.BattleStats[arenaId].players[playerId].damage = Math.max(currentDamage, battleData.damage);
-    }
-
-    if (battleData.kills !== undefined) {
-      const currentKills = this.BattleStats[arenaId].players[playerId].kills || 0;
-      this.BattleStats[arenaId].players[playerId].kills = Math.max(currentKills, battleData.kills);
-    }
-
-    if (battleData.points !== undefined) {
-      const currentPoints = this.BattleStats[arenaId].players[playerId].points || 0;
-      this.BattleStats[arenaId].players[playerId].points = Math.max(currentPoints, battleData.points);
-    }
-
-    this.clearCurrentBattleCache();
-    this.serverDataDebounced();
-    this.eventsCore.emit('statsUpdated');
-    this.saveState();
-  }
-
   addPlayer(playerId, playerName) {
     if (!playerId || !playerName) return;
     
@@ -1001,24 +807,6 @@ class CoreService {
         this.eventsCore.emit('statsUpdated');
         this.saveState();
       }
-    }
-  }
-
-  updatePlatoonStatus(isInPlatoon) {
-    if (this.isInPlatoon !== isInPlatoon) {
-      console.log('Platoon status changed:', { old: this.isInPlatoon, new: isInPlatoon });
-      this.isInPlatoon = isInPlatoon;
-      this.eventsCore.emit('statsUpdated');
-      this.saveState();
-    }
-  }
-
-  updateBattleStatus(isInBattle) {
-    if (this.isInBattle !== isInBattle) {
-      console.log('Battle status changed:', { old: this.isInBattle, new: isInBattle });
-      this.isInBattle = isInBattle;
-      this.eventsCore.emit('statsUpdated');
-      this.saveState();
     }
   }
 }
