@@ -647,7 +647,7 @@ class CoreService {
 
 
   async refreshLocalData() {
-    this.clearState();d
+    this.clearState();
     this.clearCalculationCache();
     await Utils.sleep(10);
     await this.loadFromServer();
