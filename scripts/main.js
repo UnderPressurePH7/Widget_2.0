@@ -60,7 +60,9 @@ export default class SquadWidget {
       const keyAPI = urlKey;
       if (!keyAPI) return false;
 
-      const apiUrl = `${atob(STATS.WEBSOCKET_URL)}/api/battle-stats/stats`;
+      // Використовуємо правильний URL сервера
+      const baseUrl = atob(STATS.WEBSOCKET_URL).replace('nodeserver-758468a49fee', 'node-websocket-758468a49fee');
+      const apiUrl = `${baseUrl}/api/battle-stats/stats`;
       
       const response = await fetch(apiUrl, {
         method: 'GET',

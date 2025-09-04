@@ -5,9 +5,14 @@ export const GAME_POINTS = {
 };
 
 export const STATS = {
-    BATTLE: "aHR0cHM6Ly9ub2Rlc2VydmVyLWZmYjY0NTAxZDhlZi5oZXJva3VhcHAuY29tL2FwaS9iYXR0bGUtc3RhdHMv",
-    STATUS: "aHR0cHM6Ly9ub2Rlc2VydmVyLWZmYjY0NTAxZDhlZi5oZXJva3VhcHAuY29tL2FwaS9zdGF0dXM=",
-    WEBSOCKET_URL: "aHR0cHM6Ly9ub2Rlc2VydmVyLTc1ODQ2OGE0OWZlZS5oZXJva3VhcHAuY29t"
+    // https://node-websocket-758468a49fee.herokuapp.com/api/battle-stats/
+    BATTLE: "aHR0cHM6Ly9ub2RlLXdlYnNvY2tldC03NTg0NjhhNDlmZWUuaGVyb2t1YXBwLmNvbS9hcGkvYmF0dGxlLXN0YXRzLw==",
+    
+    // https://node-websocket-758468a49fee.herokuapp.com/api/status
+    STATUS: "aHR0cHM6Ly9ub2RlLXdlYnNvY2tldC03NTg0NjhhNDlmZWUuaGVyb2t1YXBwLmNvbS9hcGkvc3RhdHVz",
+    
+    // https://node-websocket-758468a49fee.herokuapp.com
+    WEBSOCKET_URL: "aHR0cHM6Ly9ub2RlLXdlYnNvY2tldC03NTg0NjhhNDlmZWUuaGVyb2t1YXBwLmNvbQ=="
 };
 
 export const CONFIG = {
