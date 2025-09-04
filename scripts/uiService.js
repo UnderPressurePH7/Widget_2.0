@@ -28,11 +28,11 @@ class UIService {
     const playersChanged = this.lastPlayersData !== currentPlayersData;
     const teamStatsChanged = this.lastTeamData !== currentTeamData;
     
-    if (playersChanged) {
-      console.log('Players data changed, updating UI');
-      this.updateThrottle();
-      this.lastPlayersData = currentPlayersData;
-    }
+  if (playersChanged || Object.keys(this.core.PlayersInfo || {}).length > 0) {
+    console.log('Players data changed, updating UI');
+    this.updateThrottle();
+    this.lastPlayersData = currentPlayersData;
+  }
     
     if (teamStatsChanged) {
       console.log('Team stats changed, updating UI');
@@ -69,8 +69,12 @@ class UIService {
     const playerRowStyle = playerIds.length > 2 ? 'font-size: 12px;' : '';
 
     playerIds.forEach(playerId => {
-      const playerName = this.core.PlayersInfo[playerId];
-      if (!playerName) return;
+    const playerName = this.core.PlayersInfo[playerId];
+    if (!playerName) return;
+
+    const hasBattleData = Object.values(this.core.BattleStats || {}).some(battle => 
+      battle.players && battle.players[playerId]
+    );
 
       const playerRow = this.createPlayerRow(playerId, playerRowStyle);
       container.appendChild(playerRow);
