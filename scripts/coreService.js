@@ -712,18 +712,13 @@ class CoreService {
     
     const oldPlayersInfo = JSON.stringify(this.PlayersInfo);
     
-    if (!this.PlayersInfo[playerId]) {
-      console.log('Adding new player:', { playerId, playerName });
-      this.PlayersInfo[playerId] = playerName;
+    const newPlayersInfo = JSON.stringify(this.PlayersInfo);
       
-      const newPlayersInfo = JSON.stringify(this.PlayersInfo);
-      
-      if (oldPlayersInfo !== newPlayersInfo) {
+    if (oldPlayersInfo !== newPlayersInfo) {
         console.log('Player added, updating UI');
         this.serverDataDebounced();
         this.eventsCore.emit('statsUpdated');
         this.saveState();
-      }
     }
   }
 }
