@@ -245,16 +245,29 @@ class BattleDataManager {
     this.eventsHistory.emit('historyCleared');
   }
 
-  async deleteBattle(battleId) {
+async deleteBattle(battleId) {
     try {
       const accessKey = this.getAccessKey();
       if (!accessKey) {
         throw new Error('Access key not found');
       }
-      
-      await this.makeServerRequest(`${atob(STATS.BATTLE)}${accessKey}/${battleId}`, {
-        method: 'DELETE'
+
+      const apiUrl = `${atob(STATS.WEBSOCKET_URL)}/api/battle-stats/battle/${battleId}`;
+
+      const response = await fetch(apiUrl, {
+        method: 'DELETE',
+        headers: {
+          'X-API-Key': accessKey,
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'Origin': 'https://underpressureph7.github.io'
+        },
+        mode: 'cors'
       });
+
+      if (!response.ok) {
+        throw new Error(`Server error: ${response.status} ${response.statusText}`);
+      }
 
       await this.refreshLocalData();
 
