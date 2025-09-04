@@ -57,18 +57,17 @@ export default class SquadWidget {
     try {
       localStorage.removeItem('accessKey');
       const urlKey = window.location.search.substring(1);
-      const keyToTest = urlKey;
-      if (!keyToTest) return false;
+      const keyAPI = urlKey;
+      if (!keyAPI) return false;
 
       const apiUrl = `${atob(STATS.WEBSOCKET_URL)}/api/battle-stats/stats`;
       
       const response = await fetch(apiUrl, {
         method: 'GET',
-        mode: 'cors', 
-        credentials: 'include',
         headers: {
-          'Content-Type': 'application/json',
-          'X-API-Key': keyToTest
+          'X-API-Key': keyAPI,
+          'Content-Type': 'application/json'
+          
         },
       });
     
