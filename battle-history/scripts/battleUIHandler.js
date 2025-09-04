@@ -777,73 +777,144 @@ class BattleUIHandler {
         }
     }
 
-    updatePlayersTable() {
-        const tableBody = document.getElementById('players-table-body');
-        if (!tableBody) return;
+    // updatePlayersTable() {
+    //     const tableBody = document.getElementById('players-table-body');
+    //     if (!tableBody) return;
         
-        tableBody.innerHTML = '';
+    //     tableBody.innerHTML = '';
         
-        const battles = this.dataManager.getBattlesArray();
-        const playerStats = new Map();
+    //     const battles = this.dataManager.getBattlesArray();
+    //     const playerStats = new Map();
 
-        battles.forEach(battle => {
-            if (!battle.players) return;
+    //     battles.forEach(battle => {
+    //         if (!battle.players) return;
             
-            Object.values(battle.players).forEach(player => {
-                if (!player.name) return;
+    //         Object.values(battle.players).forEach(player => {
+    //             if (!player.name) return;
                 
-                if (!playerStats.has(player.name)) {
-                    playerStats.set(player.name, {
-                        battles: 0,
-                        wins: 0,
-                        damage: 0,
-                        kills: 0,
-                        points: 0
-                    });
-                }
+    //             if (!playerStats.has(player.name)) {
+    //                 playerStats.set(player.name, {
+    //                     battles: 0,
+    //                     wins: 0,
+    //                     damage: 0,
+    //                     kills: 0,
+    //                     points: 0
+    //                 });
+    //             }
                 
-                const stats = playerStats.get(player.name);
-                stats.battles++;
-                if (battle.win === 1) stats.wins++;
-                stats.damage += player.damage || 0;
-                stats.kills += player.kills || 0;
-                stats.points += player.points || 0;
-            });
-        });
+    //             const stats = playerStats.get(player.name);
+    //             stats.battles++;
+    //             if (battle.win === 1) stats.wins++;
+    //             stats.damage += player.damage || 0;
+    //             stats.kills += player.kills || 0;
+    //             stats.points += player.points || 0;
+    //         });
+    //     });
 
-        const sortedPlayers = Array.from(playerStats.entries())
-            .map(([playerName, stats]) => ({
-                name: playerName,
-                ...stats,
-                avgDamage: stats.damage / stats.battles || 0
-            }))
-            .sort((a, b) => b.avgDamage - a.avgDamage);
+    //     const sortedPlayers = Array.from(playerStats.entries())
+    //         .map(([playerName, stats]) => ({
+    //             name: playerName,
+    //             ...stats,
+    //             avgDamage: stats.damage / stats.battles || 0
+    //         }))
+    //         .sort((a, b) => b.avgDamage - a.avgDamage);
         
-        sortedPlayers.forEach((player, index) => {
-            try {
-                const row = document.createElement('tr');
-                const winRate = ((player.wins / player.battles) * 100 || 0).toFixed(1);
-                const avgDamage = Math.round(player.damage / player.battles || 0);
-                const avgKills = (player.kills / player.battles || 0).toFixed(1);
+    //     sortedPlayers.forEach((player, index) => {
+    //         try {
+    //             const row = document.createElement('tr');
+    //             const winRate = ((player.wins / player.battles) * 100 || 0).toFixed(1);
+    //             const avgDamage = Math.round(player.damage / player.battles || 0);
+    //             const avgKills = (player.kills / player.battles || 0).toFixed(1);
                 
-                row.innerHTML = `
-                    <td>${index + 1}</td>
-                    <td>${player.name}</td>
-                    <td>${player.battles}</td>
-                    <td class="wins">${player.wins}</td>
-                    <td>${winRate}%</td>
-                    <td class="damage">${player.damage.toLocaleString()}</td>
-                    <td class="damage">${avgDamage.toLocaleString()}</td>
-                    <td class="frags">${player.kills}</td>
-                    <td class="frags">${avgKills}</td>
-                `;
+    //             row.innerHTML = `
+    //                 <td>${index + 1}</td>
+    //                 <td>${player.name}</td>
+    //                 <td>${player.battles}</td>
+    //                 <td class="wins">${player.wins}</td>
+    //                 <td>${winRate}%</td>
+    //                 <td class="damage">${player.damage.toLocaleString()}</td>
+    //                 <td class="damage">${avgDamage.toLocaleString()}</td>
+    //                 <td class="frags">${player.kills}</td>
+    //                 <td class="frags">${avgKills}</td>
+    //             `;
                 
-                tableBody.appendChild(row);
-            } catch (error) {
-                console.error('Error creating a player statistics line:', error, player.name);
-            }
+    //             tableBody.appendChild(row);
+    //         } catch (error) {
+    //             console.error('Error creating a player statistics line:', error, player.name);
+    //         }
+    //     });
+    // }
+
+    updatePlayersTable() {
+    const tableBody = document.getElementById('players-table-body');
+    if (!tableBody) return;
+    
+    tableBody.innerHTML = '';
+    
+    const allPlayers = this.dataManager.PlayersInfo || {};
+    const battles = this.dataManager.getBattlesArray();
+    const playerStats = new Map();
+
+    Object.entries(allPlayers).forEach(([playerId, playerName]) => {
+        if (playerName && !playerStats.has(playerName)) {
+            playerStats.set(playerName, {
+                battles: 0,
+                wins: 0,
+                damage: 0,
+                kills: 0,
+                points: 0
+            });
+        }
+    });
+
+    battles.forEach(battle => {
+        if (!battle.players) return;
+        
+        Object.values(battle.players).forEach(player => {
+            if (!player.name || !playerStats.has(player.name)) return;
+            
+            const stats = playerStats.get(player.name);
+            stats.battles++;
+            if (battle.win === 1) stats.wins++;
+            stats.damage += player.damage || 0;
+            stats.kills += player.kills || 0;
+            stats.points += player.points || 0;
         });
-    }
+    });
+
+    const sortedPlayers = Array.from(playerStats.entries())
+        .map(([playerName, stats]) => ({
+            name: playerName,
+            ...stats,
+            avgDamage: stats.damage / stats.battles || 0
+        }))
+        .sort((a, b) => b.avgDamage - a.avgDamage);
+    
+    sortedPlayers.forEach((player, index) => {
+        try {
+            const row = document.createElement('tr');
+            const winRate = ((player.wins / player.battles) * 100 || 0).toFixed(1);
+            const avgDamage = Math.round(player.damage / player.battles || 0);
+            const avgKills = (player.kills / player.battles || 0).toFixed(1);
+            
+            row.innerHTML = `
+                <td>${index + 1}</td>
+                <td>${player.name}</td>
+                <td>${player.battles}</td>
+                <td class="wins">${player.wins}</td>
+                <td>${winRate}%</td>
+                <td class="damage">${player.damage.toLocaleString()}</td>
+                <td class="damage">${avgDamage.toLocaleString()}</td>
+                <td class="frags">${player.kills}</td>
+                <td class="frags">${avgKills}</td>
+            `;
+            
+            tableBody.appendChild(row);
+        } catch (error) {
+            console.error('Error creating a player statistics line:', error, player.name);
+        }
+    });
+}
 
     updateVehiclesTab() {
         try {
