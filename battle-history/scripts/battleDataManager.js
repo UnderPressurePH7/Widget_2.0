@@ -101,53 +101,6 @@ class BattleDataManager {
     return { teamPoints, teamDamage, teamKills, wins, battles };
   }
 
-  async makeServerRequest(url, options = {}) {
-    const response = await fetch(url, {
-      headers: {
-        'Content-Type': 'application/json',
-        ...options.headers
-      },
-      ...options
-    });
-
-    if (!response.ok) {
-      throw new Error(`Server error: ${response.status} ${response.statusText}`);
-    }
-
-    return response.json();
-  }
-
-  async saveToServer() {
-    try {
-      const accessKey = this.getAccessKey();
-      if (!accessKey) {
-        throw new Error('Access key not found');
-      }
-
-      const data = {
-        BattleStats: this.BattleStats,
-        PlayerInfo: Object.fromEntries(Object.entries(this.PlayersInfo || {}).map(([pid, nickname]) => [
-          pid, 
-          { _id: typeof nickname === 'string' ? nickname : (nickname._id || nickname.name || 'Unknown Player') }
-        ]))
-      };
-
-      const response = await this.makeServerRequest(`${atob(STATS.BATTLE)}${accessKey}`, {
-        method: 'POST',
-        body: JSON.stringify(data)
-      });
-
-      if (!response.success) {
-        throw new Error(response.message || 'Failed to save data');
-      }
-
-      return true;
-    } catch (error) {
-      console.error('Error saving data to server:', error);
-      throw error;
-    }
-  }
-
   async loadFromServer() {
     try {
       const accessKey = this.getAccessKey();
@@ -175,7 +128,6 @@ class BattleDataManager {
   
       const body = await response.json();
       const data = body.data || body;
-
 
       if (data) {
         if (data.BattleStats) {
@@ -233,70 +185,62 @@ class BattleDataManager {
     }
   }
 
-async clearServerData() {
+  async clearServerData() {
     try {
-      const accessKey = this.getAccessKey();
-      if (!accessKey) {
-        throw new Error('Access key not found');
-      }
+        const accessKey = this.getAccessKey();
+        if (!accessKey) {
+            throw new Error('Access key not found');
+        }
 
-      const apiUrl = `${atob(STATS.WEBSOCKET_URL)}/api/battle-stats/clear`;
+        const apiUrl = `${atob(STATS.WEBSOCKET_URL)}/api/battle-stats/clear`;
 
-      const response = await fetch(apiUrl, {
-        method: 'DELETE',
-        headers: {
-          'X-API-Key': accessKey,
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-          'Origin': 'https://underpressureph7.github.io'
-        },
-        mode: 'cors'
-      });
+        const response = await fetch(apiUrl, {
+            method: 'DELETE',
+            headers: {
+                'X-API-Key': accessKey,
+                'Content-Type': 'application/json'
+            }
+        });
 
-      if (!response.ok) {
-        throw new Error(`Server error: ${response.status} ${response.statusText}`);
-      }
+        if (!response.ok) {
+            throw new Error(`Server error: ${response.status} ${response.statusText}`);
+        }
 
-      await this.refreshLocalData();
-      this.eventsHistory.emit('historyCleared');
-      
+        await this.refreshLocalData();
+        this.eventsHistory.emit('historyCleared');
     } catch (error) {
         console.error('Error clearing server data:', error);
-        throw error; 
+        throw error;
     }
   }
 
-async deleteBattle(battleId) {
+  async deleteBattle(battleId) {
     try {
-      const accessKey = this.getAccessKey();
-      if (!accessKey) {
-        throw new Error('Access key not found');
-      }
+        const accessKey = this.getAccessKey();
+        if (!accessKey) {
+            throw new Error('Access key not found');
+        }
 
-      const apiUrl = `${atob(STATS.WEBSOCKET_URL)}/api/battle-stats/battle/${battleId}`;
+        const apiUrl = `${atob(STATS.WEBSOCKET_URL)}/api/battle-stats/battle/${battleId}`;
 
-      const response = await fetch(apiUrl, {
-        method: 'DELETE',
-        headers: {
-          'X-API-Key': accessKey,
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-          'Origin': 'https://underpressureph7.github.io'
-        },
-        mode: 'cors'
-      });
+        const response = await fetch(apiUrl, {
+            method: 'DELETE',
+            headers: {
+                'X-API-Key': accessKey,
+                'Content-Type': 'application/json'
+            }
+        });
 
-      if (!response.ok) {
-        throw new Error(`Server error: ${response.status} ${response.statusText}`);
-      }
+        if (!response.ok) {
+            throw new Error(`Server error: ${response.status} ${response.statusText}`);
+        }
 
-      await this.refreshLocalData();
-
-      this.eventsHistory.emit('battleDeleted', battleId);
-      return true;
+        await this.refreshLocalData();
+        this.eventsHistory.emit('battleDeleted', battleId);
+        return true;
     } catch (error) {
-      console.error('Error deleting battle:', error);
-      return false;
+        console.error('Error deleting battle:', error);
+        return false;
     }
   }
 
@@ -379,24 +323,35 @@ async deleteBattle(battleId) {
 
   async importData(importedData) {
     try {
+      const accessKey = this.getAccessKey();
+      if (!accessKey) {
+        throw new Error('Access key not found');
+      }
+
       if (!this.isValidImportData(importedData)) {
         console.error("Invalid data format for import");
         return false;
       }
 
-      await this.loadFromServer();
+      const apiUrl = `${atob(STATS.WEBSOCKET_URL)}/api/battle-stats/import`;
+      
+      const response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: {
+          'X-API-Key': accessKey,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(importedData)
+      });
 
-      this.mergeImportedData(importedData);
-
-      const saveSuccess = await this.saveToServer();
-      if (!saveSuccess) {
-        throw new Error('Failed to save data to server');
+      if (!response.ok) {
+        throw new Error(`Server error during import: ${response.status} ${response.statusText}`);
       }
 
       await this.refreshLocalData();
       this.eventsHistory.emit('dataImported', importedData);
-
       return true;
+      
     } catch (error) {
       console.error("Error importing data:", error);
       return false;
@@ -482,6 +437,5 @@ async deleteBattle(battleId) {
     });
   }
 }
-
 
 export default BattleDataManager;
