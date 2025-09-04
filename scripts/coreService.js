@@ -711,8 +711,8 @@ class CoreService {
 
 
   async refreshLocalData() {
-    this.clearState();
-    tjhis.clearCalculationCache();
+    this.clearState();d
+    this.clearCalculationCache();
     await Utils.sleep(10);
     await this.loadFromServer();
     await Utils.sleep(10);
