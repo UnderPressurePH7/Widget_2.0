@@ -350,7 +350,7 @@ class CoreService {
   }
 
   setupDebouncedMethods() {
-    this.serverDataLoadOtherPlayersDebounced = Utils.debounce(this.serverDataLoadOtherPlayers.bind(this), CONFIG.DEBOUNCE_DELAY);
+    this.serverDataLoadOtherPlayersDebounced = Utils.debounce(this.serverDataLoad.bind(this), CONFIG.DEBOUNCE_DELAY);
   }
 
   isValidBattleState() {
@@ -659,45 +659,6 @@ class CoreService {
     }
   }
 
-  async loadFromServerOtherPlayers() {
-    const accessKey = this.getAccessKey();
-    if (!accessKey) return;
-
-    if (this.socket && this.socket.connected) {
-      this.socket.emit('getOtherPlayersStats', { key: accessKey, playerId: this.curentPlayerId }, (response) => {
-        if (response && response.status === 200) {
-          this.handleServerData(response);
-          this.clearCalculationCache();
-          this.eventsCore.emit('statsUpdated');
-          this.saveState();
-        } else {
-          console.error('Error getting other players stats via socket:', response?.message || 'Unknown error');
-        }
-      });
-      return;
-    }
-
-    try {
-      const res = await fetch(`${atob(STATS.WEBSOCKET_URL)}/api/battle-stats/other-players`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-API-Key': accessKey,
-          'X-Player-ID': this.curentPlayerId || ''
-        }
-      });
-      if (res.ok) {
-        const body = await res.json();
-        this.handleServerData({ success: true, ...body.data });
-        this.clearCalculationCache();
-        this.eventsCore.emit('statsUpdated');
-        this.saveState();
-      }
-    } catch (e) {
-      console.error('REST fallback getOtherPlayersStats failed:', e);
-    }
-  }
-
   async clearServerData() {
     const accessKey = this.getAccessKey();
     if (!accessKey) {
@@ -748,46 +709,18 @@ class CoreService {
     }
   }
 
-  async refreshData() {
-    try {
-      await this.loadFromServer();
-      this.eventsCore.emit('statsUpdated');
-      this.saveState();
-    } catch (error) {
-      console.error('Error in refreshData:', error);
-    }
-  }
 
   async refreshLocalData() {
     this.clearState();
+    tjhis.clearCalculationCache();
     await Utils.sleep(10);
     await this.loadFromServer();
     await Utils.sleep(10);
+    this.calculateBattleData();
     this.eventsCore.emit('statsUpdated');
+
     this.saveState();
   } 
-
-  async serverDataLoad() {
-    try {
-      await this.loadFromServer();
-      this.eventsCore.emit('statsUpdated');
-      await Utils.sleep(CONFIG.UI_UPDATE_DELAY);
-      this.saveState();
-    } catch (error) {
-      console.error('Error in serverDataLoad:', error);
-    }
-  }
-
-  async serverDataLoadOtherPlayers() {
-    try {
-      await this.loadFromServerOtherPlayers();
-      await Utils.sleep(CONFIG.UI_UPDATE_DELAY);
-      this.eventsCore.emit('statsUpdated');
-      this.saveState();
-    } catch (error) {
-      console.error('Error in serverDataLoadOtherPlayers:', error);
-    }
-  }
 
   addPlayer(playerId, playerName) {
     if (!playerId || !playerName) return;
