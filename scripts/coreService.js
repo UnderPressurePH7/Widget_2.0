@@ -286,7 +286,6 @@ class CoreService {
       this.PlayersInfo = savedState.PlayersInfo || {};
       this.curentArenaId = savedState.curentArenaId || null;
 
-      this.lastUpdateTime = savedState.lastUpdateTime || null;
     } else {
       this.resetState();
     }
@@ -300,12 +299,10 @@ class CoreService {
     this.BattleStats = {};
     this.PlayersInfo = {};
     this.curentArenaId = null;
-    this.lastUpdateTime = null;
   }
 
   setupDebouncedMethods() {
     this.serverDataLoadOtherPlayersDebounced = Utils.debounce(this.loadFromServer.bind(this), CONFIG.DEBOUNCE_DELAY);
-    this.lastUpdateTime = time.now();
   }
 
   isValidBattleState() {
