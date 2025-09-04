@@ -200,7 +200,7 @@ class UIService {
         newRefreshBtn.disabled = true;
         newRefreshBtn.textContent = 'Оновлення...';
 
-        await this.core.serverDataSave();
+        // await this.core.serverDataSave();
         await this.core.loadFromServer();
         
         this.lastPlayersData = null;
