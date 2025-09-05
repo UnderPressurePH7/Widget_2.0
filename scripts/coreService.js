@@ -442,12 +442,12 @@ class CoreService {
   async loadFromServer() {
     const accessKey = this.getAccessKey();
     if (!accessKey) return;
-    this.clearCalculationCache();
+    
     if (this.socket && this.socket.connected) {
       this.socket.emit('getStats', { key: accessKey }, (response) => {
         if (response && response.status === 200) {
           this.handleServerData(response);
-          
+          this.clearCalculationCache();
           this.eventsCore.emit('statsUpdated');
           this.saveState();
         } else {
@@ -467,8 +467,6 @@ class CoreService {
         return;
       } 
 
-      this.clearCalculationCache();
-
       const res = await fetch(`${atob(STATS.WEBSOCKET_URL)}/api/battle-stats/stats?limit=0`, {
         method: 'GET',
         headers: {
@@ -485,7 +483,7 @@ class CoreService {
         const body = await res.json();
         console.log('Data loaded from server via REST:', body);
         this.handleServerData({ success: true, ...body.data });
-        // this.clearCalculationCache();
+        this.clearCalculationCache();
         this.eventsCore.emit('statsUpdated');
         this.saveState();
       } else {
@@ -550,7 +548,7 @@ class CoreService {
     this.resetState();
     this.clearCalculationCache();
     await Utils.sleep(10);
-    await this.loadViaREST(this.getAccessKey());
+    await this.loadFromServer();
     await Utils.sleep(10);
     this.calculateBattleData();
     this.eventsCore.emit('statsUpdated');
