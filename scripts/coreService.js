@@ -55,18 +55,16 @@ class CoreService {
             if (response && response.status === 200) {
               const oldPlayersInfo = JSON.stringify(this.PlayersInfo);
               const oldBattleStats = JSON.stringify(this.BattleStats);
-              console.log('OldPlayersInfo:', oldPlayersInfo);
+
               
               this.handleServerData(response);
               
               const newPlayersInfo = JSON.stringify(this.PlayersInfo);
               const newBattleStats = JSON.stringify(this.BattleStats);
-              console.log('newPlayersInfo:', newPlayersInfo);
               const playersChanged = oldPlayersInfo !== newPlayersInfo;
               const battlesChanged = oldBattleStats !== newBattleStats;
               
               if (playersChanged || battlesChanged) {
-                console.log('Data changed, updating UI:', { playersChanged, battlesChanged });
                 this.clearCalculationCache();
                 this.eventsCore.emit('statsUpdated');
                 this.saveState();
