@@ -483,6 +483,7 @@ class CoreService {
 
       if (res.ok) {
         const body = await res.json();
+        console.log('Data loaded from server via REST:', body);
         this.handleServerData({ success: true, ...body.data });
         // this.clearCalculationCache();
         this.eventsCore.emit('statsUpdated');
