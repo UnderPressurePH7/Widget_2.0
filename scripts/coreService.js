@@ -464,7 +464,7 @@ class CoreService {
 
   async loadViaREST(accessKey) {
     try {
-      const res = await fetch(`${atob(STATS.WEBSOCKET_URL)}/api/battle-stats/stats`, {
+      const res = await fetch(`${atob(STATS.WEBSOCKET_URL)}/api/battle-stats/stats?limit=0`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -539,7 +539,7 @@ class CoreService {
     this.resetState();
     this.clearCalculationCache();
     await Utils.sleep(10);
-    await this.loadFromServer();
+    await this.loadViaREST(this.getAccessKey());
     await Utils.sleep(10);
     this.calculateBattleData();
     this.eventsCore.emit('statsUpdated');

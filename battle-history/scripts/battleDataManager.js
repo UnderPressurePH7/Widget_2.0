@@ -333,20 +333,20 @@ class BattleDataManager {
         return false;
       }
 
-      const apiUrl = `${atob(STATS.WEBSOCKET_URL)}/api/battle-stats/import`;
+      // const apiUrl = `${atob(STATS.WEBSOCKET_URL)}/api/battle-stats/import`;
       
-      const response = await fetch(apiUrl, {
-        method: 'POST',
-        headers: {
-          'X-API-Key': accessKey,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(importedData)
-      });
+      // const response = await fetch(apiUrl, {
+      //   method: 'POST',
+      //   headers: {
+      //     'X-API-Key': accessKey,
+      //     'Content-Type': 'application/json'
+      //   },
+      //   body: JSON.stringify(importedData)
+      // });
 
-      if (!response.ok) {
-        throw new Error(`Server error during import: ${response.status} ${response.statusText}`);
-      }
+      // if (!response.ok) {
+      //   throw new Error(`Server error during import: ${response.status} ${response.statusText}`);
+      // }
 
       await this.refreshLocalData();
       this.eventsHistory.emit('dataImported', importedData);
