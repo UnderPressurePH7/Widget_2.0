@@ -195,7 +195,8 @@ class CoreService {
   }
 
   setupDebouncedMethods() {
-    this.serverDataLoadOtherPlayersDebounced = Utils.debounce(this.loadFromServer.bind(this), CONFIG.DEBOUNCE_DELAY);
+    this.serverDataLoadDebounced = Utils.debounce(this.loadFromServer.bind(this), CONFIG.DEBOUNCE_DELAY);
+    // this.refreshLocalDataDebounced = Utils.debounce(this.refreshLocalData.bind(this), CONFIG.DEBOUNCE_DELAY);
   }
 
   isValidBattleState() {
