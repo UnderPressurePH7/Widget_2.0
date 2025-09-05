@@ -444,12 +444,12 @@ class CoreService {
   async loadFromServer() {
     const accessKey = this.getAccessKey();
     if (!accessKey) return;
-
+    this.clearCalculationCache();
     if (this.socket && this.socket.connected) {
       this.socket.emit('getStats', { key: accessKey }, (response) => {
         if (response && response.status === 200) {
           this.handleServerData(response);
-          this.clearCalculationCache();
+          
           this.eventsCore.emit('statsUpdated');
           this.saveState();
         } else {
@@ -464,17 +464,29 @@ class CoreService {
 
   async loadViaREST(accessKey) {
     try {
+      if (!accessKey) {
+        console.error('Access key is required to load data via REST.');
+        return;
+      } 
+
+      this.clearCalculationCache();
+
       const res = await fetch(`${atob(STATS.WEBSOCKET_URL)}/api/battle-stats/stats?limit=0`, {
         method: 'GET',
         headers: {
-          'Content-Type': 'application/json',
           'X-API-Key': accessKey,
-        }
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'Origin': 'https://underpressureph7.github.io'
+        },
+        mode: 'cors',
+        cache: 'no-cache'
       });
+
       if (res.ok) {
         const body = await res.json();
         this.handleServerData({ success: true, ...body.data });
-        this.clearCalculationCache();
+        // this.clearCalculationCache();
         this.eventsCore.emit('statsUpdated');
         this.saveState();
       } else {
