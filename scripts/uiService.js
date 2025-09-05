@@ -68,7 +68,6 @@ class UIService {
 
     playerIds.forEach(playerId => {
     const playerName = this.core.PlayersInfo[playerId];
-    console.log('Rendering player:', playerId, playerName);
     if (!playerName) return;
 
       const playerRow = this.createPlayerRow(playerId, playerRowStyle);
