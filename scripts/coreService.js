@@ -10,9 +10,11 @@ class CoreService {
     this.eventsCore = new EventEmitter();
     this.setupDebouncedMethods();
     this.initializeSocket();
-    this.loadFromServer().then(() => {
+    if (!this.socket || !this.socket.connected) {
+      this.loadFromServer().then(() => {
       this.eventsCore.emit('statsUpdated');
     });
+    }
   }
 
   initializeSocket() {
