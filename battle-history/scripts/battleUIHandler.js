@@ -314,7 +314,7 @@ class BattleUIHandler {
         }
 
         const sortedBattles = [...allBattles].sort((a, b) => 
-            new Date(b.startTime || 0) - new Date(a.startTime || 0)
+            new Date(b.startTime * 1000 || 0) - new Date(a.startTime * 1000 || 0)
         );
         const totalPages = Math.ceil(sortedBattles.length / this.itemsPerPage);
         const startIndex = (this.currentPage - 1) * this.itemsPerPage;
@@ -399,7 +399,7 @@ class BattleUIHandler {
             row.classList.add('best-battle');
         }
 
-        const date = battle.startTime ? new Date(battle.startTime) : new Date();
+        const date = battle.startTime ? new Date(battle.startTime * 1000) : new Date();
 
         let resultText = 'В бою';
         let resultClass = 'inBattle';
@@ -467,7 +467,7 @@ class BattleUIHandler {
 
         if (detailMap) detailMap.textContent = battle.mapName || 'Невідома мапа';
         if (detailTime) detailTime.textContent = battle.startTime ? 
-            new Date(battle.startTime).toLocaleString() : '-';
+            new Date(battle.startTime * 1000).toLocaleString() : '-';
 
         if (resultElement) {
             let resultText = '';

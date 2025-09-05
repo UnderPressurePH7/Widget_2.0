@@ -274,7 +274,7 @@ class BattleDataManager {
     return battles.filter(battle => {
       if (!battle.startTime) return false;
 
-      const battleDate = new Date(battle.startTime);
+      const battleDate = new Date(battle.startTime * 1000);
       battleDate.setHours(0, 0, 0, 0);
 
       return battleDate.getTime() === filterDate.getTime();
