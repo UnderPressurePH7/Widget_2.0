@@ -200,7 +200,7 @@ class UIService {
 
         await this.core.refreshLocalData();
         
-        this.lastPlayersData = null;
+        // this.lastPlayersData = null;
         this.lastTeamData = null;
         
         this.core.saveState();
