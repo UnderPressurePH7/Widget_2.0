@@ -198,13 +198,15 @@ class UIService {
         newRefreshBtn.disabled = true;
         newRefreshBtn.textContent = 'Оновлення...';
 
+        this.lastPlayersData = null;
+        this.lastTeamData = null;
+
         await this.core.refreshLocalData();
         
-        // this.lastPlayersData = null;
-        this.lastTeamData = null;
+        this.updatePlayersUI();
         
         this.core.saveState();
-        this.updatePlayersUI();
+
       } catch (error) {
         console.error('Error updating data:', error);
         this.handleError(error);
