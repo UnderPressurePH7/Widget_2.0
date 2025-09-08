@@ -199,10 +199,11 @@ class UIService {
         newRefreshBtn.textContent = 'Оновлення...';
 
         await this.core.refreshLocalData();
-        this.updatePlayersUI();
+        
         
         this.lastPlayersData = null;
         this.lastTeamData = null;
+        this.updatePlayersUI();
         this.core.saveState();
 
       } catch (error) {
